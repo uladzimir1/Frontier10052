@@ -1,0 +1,123 @@
+@page "/"
+
+<PageTitle>Frontier 10052</PageTitle>
+
+<section class="hero" aria-labelledby="hero-title">
+    <div class="starfield starfield-a" aria-hidden="true"></div>
+    <div class="starfield starfield-b" aria-hidden="true"></div>
+    <div class="orbital-glow" aria-hidden="true"></div>
+    <div class="planet" aria-hidden="true"></div>
+    <div class="station station-main" aria-hidden="true">
+        <span class="station-spine"></span>
+        <span class="station-ring ring-one"></span>
+        <span class="station-ring ring-two"></span>
+        <span class="station-light light-one"></span>
+        <span class="station-light light-two"></span>
+        <span class="station-light light-three"></span>
+    </div>
+    <div class="ship ship-cargo" aria-hidden="true"><span></span></div>
+    <div class="ship ship-patrol" aria-hidden="true"><span></span></div>
+    <div class="ship ship-liner" aria-hidden="true"><span></span></div>
+
+    <div class="hero-content">
+        <p class="eyebrow">A LIVING GALAXY · YEAR 10052</p>
+        <h1 id="hero-title">Humanity crossed the stars.<br />Now it must cross a galaxy.</h1>
+        <p class="hero-copy">Trade, explore, survive, and shape the frontier in a realistic intergalactic civilization simulator.</p>
+        <div class="hero-actions">
+            <a class="button button-primary" href="/play">Enter the frontier</a>
+            <a class="button button-secondary" href="#universe">Explore the universe</a>
+        </div>
+        <div class="hero-meta" aria-label="Game pillars">
+            <span><strong>500+</strong> known star systems</span>
+            <span><strong>2</strong> connected galaxies</span>
+            <span><strong>1</strong> persistent commander</span>
+        </div>
+    </div>
+
+    <a class="scroll-cue" href="#universe" aria-label="Scroll to discover"><span></span>Scroll to discover</a>
+</section>
+
+<section class="section universe-section" id="universe">
+    <div class="section-copy">
+        <p class="eyebrow">THE UNIVERSE AWAITS</p>
+        <h2>A believable future, eight thousand years from now.</h2>
+        <p>Real stars. Political borders. Trade routes. Old worlds in decline and frontier settlements still deciding what they will become.</p>
+        <a class="text-link" href="#map">Open the galactic atlas <span>→</span></a>
+    </div>
+    <div class="galaxy-card" aria-label="Milky Way and Andromeda route visualization">
+        <div class="galaxy galaxy-milky"></div>
+        <div class="galaxy galaxy-andromeda"></div>
+        <div class="gate-line"><span></span></div>
+        <div class="map-label label-sol">SOL<br /><small>You are here</small></div>
+        <div class="map-label label-andromeda">ANDROMEDA<br /><small>The promised frontier</small></div>
+    </div>
+</section>
+
+<section class="section ships-section" id="ships">
+    <div class="section-heading">
+        <p class="eyebrow">SHIPS BUILT FOR EVERY PATH</p>
+        <h2>Your ship is not a class. It is a life you assemble.</h2>
+    </div>
+    <div class="ship-grid">
+        <article class="ship-card ship-card-cargo"><div class="ship-silhouette"></div><p>CARGO</p><h3>Modular freighters</h3><span>Containers, fuel bladders, defensive hardpoints, passenger berths.</span></article>
+        <article class="ship-card ship-card-science"><div class="ship-silhouette"></div><p>SCIENCE</p><h3>Deep-range surveyors</h3><span>Sensors, laboratories, drone bays, long-duration habitats.</span></article>
+        <article class="ship-card ship-card-security"><div class="ship-silhouette"></div><p>SECURITY</p><h3>Police and military craft</h3><span>Interceptors, patrol ships, carriers, customs and rescue variants.</span></article>
+        <article class="ship-card ship-card-outlaw"><div class="ship-silhouette"></div><p>OUTLAW</p><h3>Pirates, salvagers, collectors</h3><span>Rebuilt hulls, false signatures, hidden holds, improvised weapons.</span></article>
+    </div>
+</section>
+
+<section class="section split-section" id="factions">
+    <div class="faction-stage">
+        <div class="faction-orbit"></div>
+        <div class="faction-emblem">F</div>
+    </div>
+    <div class="section-copy">
+        <p class="eyebrow">FACTIONS & POWER</p>
+        <h2>No empire controls the whole map.</h2>
+        <p>Governments, corporate blocs, democratic frontier worlds, syndicates, pirate fleets, research coalitions, and quiet organizations all want something from you.</p>
+        <div class="pill-row"><span>Authority</span><span>Commerce</span><span>Freedom</span><span>Outlaws</span><span>Andromeda</span></div>
+    </div>
+</section>
+
+<section class="section map-section" id="map">
+    <div class="map-panel">
+        <div class="map-toolbar"><span>Search galaxy…</span><span>Trade · Security · Gates · Colonies</span></div>
+        <div class="map-space">
+            @for (var i = 0; i < 42; i++)
+            {
+                <span class="map-star" style="@($"--x:{(i * 37) % 97}%;--y:{(i * 61) % 91}%;--d:{2 + (i % 5)}px")"></span>
+            }
+            <span class="route route-one"></span>
+            <span class="route route-two"></span>
+            <span class="system system-sol">SOL<small>Origin</small></span>
+            <span class="system system-sirius">SIRIUS<small>Corporate Compact</small></span>
+            <span class="system system-gate">ANDROMEDA GATE<small>Subsidized one-way passage</small></span>
+        </div>
+    </div>
+    <div class="section-copy">
+        <p class="eyebrow">GOOGLE MAPS FOR THE GALAXY</p>
+        <h2>Zoom from two galaxies to a docking berth.</h2>
+        <p>Search by star, station, commodity, faction, safety, fuel range, contract, colony, or rumor. The same map becomes more detailed as you move closer.</p>
+    </div>
+</section>
+
+<section class="section colony-section" id="colonies">
+    <div class="colony-visual">
+        <div class="colony-sun"></div>
+        <div class="colony-tower tower-one"></div>
+        <div class="colony-tower tower-two"></div>
+        <div class="colony-tower tower-three"></div>
+        <div class="colony-ring"></div>
+    </div>
+    <div class="section-copy">
+        <p class="eyebrow">BUILD · EXPAND · THRIVE</p>
+        <h2>Watch settlements become civilizations.</h2>
+        <p>Deliver machinery, move people, protect supply lines, finance construction, influence policy, and see a colony change because you were there.</p>
+        <a class="button button-primary" href="/play">Start your command</a>
+    </div>
+</section>
+
+<footer>
+    <div><strong>FRONTIER 10052</strong><span>Humanity crossed the stars.</span></div>
+    <div><a href="#universe">Universe</a><a href="#ships">Ships</a><a href="#map">Star map</a><a href="/play">Play</a></div>
+</footer>
