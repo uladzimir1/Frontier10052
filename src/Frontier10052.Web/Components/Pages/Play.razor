@@ -1,0 +1,61 @@
+@page "/play"
+@rendermode InteractiveServer
+
+<PageTitle>Launch Frontier 10052</PageTitle>
+
+<section class="launcher">
+    <div class="launcher-space" aria-hidden="true">
+        <div class="launcher-planet"></div>
+        <div class="hangar-frame frame-left"></div>
+        <div class="hangar-frame frame-right"></div>
+        <div class="launcher-ship"><span class="engine engine-one"></span><span class="engine engine-two"></span></div>
+        <div class="service-light service-one"></div>
+        <div class="service-light service-two"></div>
+    </div>
+
+    <div class="launcher-panel">
+        <a class="launcher-brand" href="/"><strong>FRONTIER</strong><span>10052</span></a>
+        <p class="launcher-kicker">COMMAND INTERFACE</p>
+
+        <button class="launcher-action selected" @onclick='() => Select("continue")'>
+            <span><strong>Continue</strong><small>Last save · Sol orbital traffic zone</small></span><b>›</b>
+        </button>
+        <button class="launcher-action" @onclick='() => Select("new")'>
+            <span><strong>New commander</strong><small>Begin on Earth, year 10052</small></span><b>›</b>
+        </button>
+        <button class="launcher-action" @onclick='() => Select("multiplayer")'>
+            <span><strong>Multiplayer</strong><small>Fleet services coming later</small></span><b>›</b>
+        </button>
+        <button class="launcher-action quiet" @onclick='() => Select("settings")'><span><strong>Settings</strong></span><b>›</b></button>
+        <button class="launcher-action quiet" @onclick='() => Select("news")'><span><strong>News & patch notes</strong></span><b>›</b></button>
+
+        <div class="server-status"><i></i> Frontier services online</div>
+    </div>
+
+    <div class="commander-card">
+        <div class="commander-avatar">AM</div>
+        <div><strong>Cmdr. Alex Mercer</strong><span>Independent trader · Level 42</span></div>
+    </div>
+
+    <div class="launcher-message" role="status">
+        <span>@StatusTitle</span>
+        <small>@StatusDetail</small>
+    </div>
+</section>
+
+@code {
+    private string StatusTitle { get; set; } = "Your ship is ready.";
+    private string StatusDetail { get; set; } = "Docking clamps released on command.";
+
+    private void Select(string action)
+    {
+        (StatusTitle, StatusDetail) = action switch
+        {
+            "continue" => ("Resuming command.", "Loading the last known ship, crew, cargo, and local traffic state."),
+            "new" => ("New commander selected.", "Character origin, career, ship financing, and starting system will follow."),
+            "multiplayer" => ("Fleet services unavailable.", "The initial release is a rich single-player simulation; multiplayer remains planned."),
+            "settings" => ("Settings console opened.", "Display, accessibility, audio, controls, and simulation detail settings are planned here."),
+            _ => ("Frontier network synchronized.", "News, market events, faction bulletins, and development updates will appear here.")
+        };
+    }
+}
