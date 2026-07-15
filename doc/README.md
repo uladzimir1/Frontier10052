@@ -14,6 +14,25 @@ The game is designed as a **web-first premium experience** built on .NET 10, wit
 | [PRODUCTION_ROADMAP.md](PRODUCTION_ROADMAP.md) | Vertical slice, MVP, staged production plan, team disciplines, milestones, risks, and definition of done. |
 | [WEBSITE_AND_GAME_UX.md](WEBSITE_AND_GAME_UX.md) | How the cinematic marketing site, launcher, onboarding, HUD, menus, navigation, and in-game visual language form one coherent product. |
 
+## Implementation starter pack
+
+Start implementation with these documents rather than attempting the entire production roadmap at once:
+
+| Document | Purpose |
+|---|---|
+| [27_IMPLEMENTATION_START.md](27_IMPLEMENTATION_START.md) | First executable milestone, project responsibilities, engineering conventions, seed content, use cases, persistence baseline, testing gates, CI, and implementation order. |
+| [28_VERTICAL_SLICE_BACKLOG.md](28_VERTICAL_SLICE_BACKLOG.md) | Ordered epics and stories with acceptance criteria and milestone gates for the deterministic first playable. |
+| [Architecture/README.md](Architecture/README.md) | ADR process, required initial decisions, and a reusable decision-record template. |
+
+The recommended starting sequence is:
+
+1. Accept or revise the implementation milestone.
+2. Create the documented solution projects and CI pipeline.
+3. Decide numeric units, deterministic randomness, simulation time, content versioning, and save boundaries through ADRs.
+4. Build validated seed content.
+5. Complete the headless trade journey before coupling gameplay to real-time rendering.
+6. Add the minimal Blazor UI and then the renderer spike behind a stable boundary.
+
 ## Canon sources
 
 The production documents are derived from the established project canon:
