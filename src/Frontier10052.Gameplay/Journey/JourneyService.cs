@@ -30,9 +30,19 @@ public sealed class JourneyService(GameSessionCoordinator sessions) : IJourneySe
         }, cancellationToken);
 
     public ValueTask<CommandResult<JourneySnapshot>> ResolveCurrentEncounterAsync(string playerKey, EncounterResponse response, CancellationToken cancellationToken = default) => Mutate(playerKey, state => JourneyCommands.ResolveCurrentEncounter(state, response), cancellationToken);
+    public ValueTask<CommandResult<JourneySnapshot>> ResolveCheckpointAsync(string playerKey, CheckpointResponse? response = null, CancellationToken cancellationToken = default) => Mutate(playerKey, state => JourneyCommands.ResolveNextCheckpoint(state, response), cancellationToken);
     public ValueTask<CommandResult<JourneySnapshot>> ArriveAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, JourneyCommands.Arrive, cancellationToken);
     public ValueTask<CommandResult<JourneySnapshot>> SellCargoAsync(string playerKey, CommodityId commodityId, Tonnes quantity, CancellationToken cancellationToken = default) => Mutate(playerKey, state => JourneyCommands.SellCargo(state, commodityId, quantity), cancellationToken);
-    public ValueTask<CommandResult<JourneySnapshot>> DeliverCargoAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, state => JourneyCommands.DeliverCargo(state, state.Journey?.VoyageNumber == 1 ? sessions.CreateTurnaroundOffers(state.Time) : null), cancellationToken);
+    public ValueTask<CommandResult<JourneySnapshot>> DeliverCargoAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, state => JourneyCommands.DeliverCargo(
+        state,
+        state.Journey?.VoyageNumber switch
+        {
+            1 => sessions.CreateTurnaroundOffers(state.Time),
+            2 => [sessions.CreateSiriusOffer(state.Time, state.Ship.StationId)],
+            _ => null,
+        }), cancellationToken);
+    public ValueTask<CommandResult<JourneySnapshot>> ClearSiriusCustomsAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, JourneyCommands.ClearSiriusCustoms, cancellationToken);
+    public ValueTask<CommandResult<JourneySnapshot>> SettleInformationContractAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, JourneyCommands.SettleInformationContract, cancellationToken);
 
     private static RouteTravelState CreateRoute(RouteDefinition route, GameTime time) => new(
         route.Id, route.OriginStationId, route.DestinationStationId, route.DurationHours, route.FuelCostPercent, route.DriveWearPercent,

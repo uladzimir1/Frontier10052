@@ -22,7 +22,10 @@ public sealed record LauncherSnapshot(
     long LienBalance = 72_000,
     string RepairCondition = "No service record",
     int LegalExposure = 0,
-    string ImportantConsequences = "No persistent consequences recorded yet.");
+    string ImportantConsequences = "No persistent consequences recorded yet.",
+    string CurrentCheckpoint = "Docked",
+    int SiriusCompactStanding = 0,
+    int SiriusLaborStanding = 0);
 
 public sealed record CommanderSnapshot(
     string DisplayName,
@@ -36,7 +39,8 @@ public sealed record ShipSnapshot(
     int CargoCapacity,
     int FuelPercent,
     int DriveWearPercent,
-    string LastSaveLabel);
+    string LastSaveLabel,
+    int PinchReserve = 0);
 
 public sealed record DockSnapshot(
     string Station,

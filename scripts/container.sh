@@ -1,8 +1,17 @@
 #!/bin/sh
 set -eu
 
-action="${1:-test}"
-engine="${2:-${CONTAINER_ENGINE:-podman}}"
+requested="${1:-test}"
+case "$requested" in
+    podman|docker)
+        action="test"
+        engine="$requested"
+        ;;
+    *)
+        action="$requested"
+        engine="${2:-${CONTAINER_ENGINE:-podman}}"
+        ;;
+esac
 
 case "$engine" in
     podman|docker) ;;
@@ -30,7 +39,7 @@ case "$action" in
         "$engine" run --rm --publish "$port:8080" "$image"
         ;;
     *)
-        echo "Usage: $0 [test|run] [podman|docker]" >&2
+        echo "Usage: $0 [test|run] [podman|docker] or $0 [podman|docker]" >&2
         exit 64
         ;;
 esac

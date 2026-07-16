@@ -98,13 +98,14 @@ public sealed class MarsTurnaroundIntegrationTests
         Assert.AreEqual("Pluto Gateway", selected.AuthorizedDestination ?? selected.Offers.Single(item => item.Status == "Accepted").Destination);
         Assert.AreEqual("pluto-migration-medical-emergency", contact.Encounter?.Id);
         Assert.AreEqual(4, resolved.Route.DelayHours);
-        Assert.AreEqual(JourneyPhase.Delivered, completed.Phase);
+        Assert.AreEqual(JourneyPhase.Turnaround, completed.Phase);
         Assert.AreEqual("Completed", completed.Contract.Status);
         Assert.IsFalse(completed.LastOutcome.Contains("pluto-gateway", StringComparison.Ordinal));
         Assert.HasCount(2, state.AllJourneyHistory);
         Assert.IsNotNull(state.AllJourneyHistory.Single(item => item.VoyageNumber == 2).DestinationManifest);
         Assert.AreEqual(ContractStatus.Transformed, state.AllContracts.Single(item => item.Id.Value == "kuiper-ceres-repair-freight").Status);
         Assert.AreEqual(ContractStatus.Completed, state.AllContracts.Single(item => item.Id.Value == "tca-pluto-migration-support").Status);
+        Assert.AreEqual("scc-sirius-industrial-forecast", state.AllContracts.Single(item => item.Status == ContractStatus.Offered).Id.Value);
         Assert.IsTrue(state.Crew.Single(item => item.Id.Value == "tomas-vale").Memories!.Any(item => item.Kind == "humanitarian-response"));
         Assert.IsGreaterThan(0, state.AllFactionStandings.Single(item => item.FactionId == FactionIds.TerranContinuityAuthority).Standing);
     }
@@ -130,7 +131,7 @@ public sealed class MarsTurnaroundIntegrationTests
         Assert.AreEqual(73_500, debt.Lien.Principal);
         Assert.AreEqual("ceres-debris-coolant-breach", contact.Encounter?.Id);
         Assert.AreEqual(3, resolved.Route.DelayHours);
-        Assert.AreEqual(JourneyPhase.Delivered, completed.Phase);
+        Assert.AreEqual(JourneyPhase.Turnaround, completed.Phase);
         Assert.IsFalse(completed.LastOutcome.Contains("ceres-freehold-anchorage", StringComparison.Ordinal));
         Assert.IsGreaterThanOrEqualTo(2, completed.LegalExposure);
         Assert.IsGreaterThan(0, state.AllFactionStandings.Single(item => item.FactionId == FactionIds.KuiperSyndicates).Standing);
@@ -206,7 +207,7 @@ public sealed class MarsTurnaroundIntegrationTests
         GameState after = (await _store.LoadAsync(player)).Value!.State;
 
         Assert.AreEqual("Failed", failed.Contract.Status);
-        Assert.AreEqual(JourneyPhase.Delivered, failed.Phase);
+        Assert.AreEqual(JourneyPhase.Turnaround, failed.Phase);
         Assert.AreEqual(before.Money.Value - 5_000, after.Money.Value);
         Assert.AreEqual(before.AllFactionStandings.Single(item => item.FactionId == FactionIds.KuiperSyndicates).Standing - 4, after.AllFactionStandings.Single(item => item.FactionId == FactionIds.KuiperSyndicates).Standing);
         Assert.AreEqual(ContractStatus.Failed, after.AllJourneyHistory.Single(item => item.VoyageNumber == 2).DestinationManifest?.SettlementStatus);
@@ -228,7 +229,7 @@ public sealed class MarsTurnaroundIntegrationTests
     }
 
     [TestMethod]
-    public async Task SchemaTwoMigrationPreservesAuthorityAndDerivesSchemaThreeState()
+    public async Task SchemaTwoMigrationPreservesAuthorityAndDerivesSchemaFourState()
     {
         const string player = "schema-two";
         await _station.StartNewGameAsync(player, "Migration Test", false);
@@ -257,8 +258,8 @@ public sealed class MarsTurnaroundIntegrationTests
         GameState rewritten = (await _store.LoadAsync(player)).Value!.State;
 
         Assert.IsNull(ignored);
-        Assert.AreEqual(3, migrated.SchemaVersion);
-        Assert.AreEqual("vertical-slice-v2", migrated.ContentPackVersion);
+        Assert.AreEqual(4, migrated.SchemaVersion);
+        Assert.AreEqual("vertical-slice-v3", migrated.ContentPackVersion);
         Assert.AreEqual(current.CommandSequence, rewritten.CommandSequence);
         Assert.AreEqual(current.Time, rewritten.Time);
         Assert.AreEqual(current.Money, rewritten.Money);

@@ -6,7 +6,7 @@ public static class TurnaroundCommands
 {
     private const long LienServiceCost = 6_000;
     private const long LienCapitalization = 1_500;
-    private const long FuelUnitCost = 85;
+    private const int MarsFuelUnitCost = 85;
 
     public static CommandResult<GameState> ServiceLien(GameState state)
     {
@@ -48,14 +48,16 @@ public static class TurnaroundCommands
         });
     }
 
-    public static CommandResult<GameState> Refuel(GameState state, int percentagePoints)
+    public static CommandResult<GameState> Refuel(GameState state, int percentagePoints) => Refuel(state, percentagePoints, MarsFuelUnitCost);
+
+    public static CommandResult<GameState> Refuel(GameState state, int percentagePoints, int fuelUnitCost)
     {
         CommandResult<TurnaroundState> check = RequireMutableTurnaround(state);
         if (!check.IsSuccess) return Fail(check.Error!);
         if (percentagePoints <= 0) return Failure(CommandErrorCodes.InvalidFuelQuantity, "Choose at least one fuel percentage point.");
         if (state.Ship.FuelPercent + percentagePoints > 100) return Failure(CommandErrorCodes.FuelTankCapacityExceeded, $"Wayfarer can accept at most {100 - state.Ship.FuelPercent} more fuel points.");
 
-        long total = checked(FuelUnitCost * percentagePoints);
+        long total = checked((long)fuelUnitCost * percentagePoints);
         if (state.Money.Value < total) return Failure(CommandErrorCodes.InsufficientCredits, $"This refuel costs {total:N0} credits; only {state.Money.Value:N0} are available.");
         int hours = checked((percentagePoints + 9) / 10);
         CommandResult<bool> timeCheck = CheckOfferWindow(state, check.Value!, hours);
@@ -71,7 +73,34 @@ public static class TurnaroundCommands
         });
     }
 
-    public static CommandResult<GameState> Repair(GameState state, RepairService service)
+    public static CommandResult<GameState> ChargePinch(GameState state, int points, int unitCost)
+    {
+        CommandResult<TurnaroundState> check = RequireMutableTurnaround(state);
+        if (!check.IsSuccess) return Fail(check.Error!);
+        if (check.Value!.Mode != StationOperationsMode.SiriusPreparation)
+            return Failure(CommandErrorCodes.TurnaroundUnavailable, "Metric-drive pinch charging is available only for the Sirius departure preparation.");
+        if (points <= 0) return Failure(CommandErrorCodes.InvalidPinchQuantity, "Choose at least one pinch-reserve point.");
+        if (state.Ship.PinchReserve + points > 100)
+            return Failure(CommandErrorCodes.PinchCapacityExceeded, $"Wayfarer can accept at most {100 - state.Ship.PinchReserve} more pinch points.");
+
+        long total = checked((long)unitCost * points);
+        if (state.Money.Value < total) return Failure(CommandErrorCodes.InsufficientCredits, $"This pinch charge costs {total:N0} credits; only {state.Money.Value:N0} are available.");
+        int hours = checked((points + 19) / 20);
+        CommandResult<bool> timeCheck = CheckOfferWindow(state, check.Value, hours);
+        if (!timeCheck.IsSuccess) return Fail(timeCheck.Error!);
+
+        return Success(state with
+        {
+            Time = state.Time.AddHours(hours),
+            Money = state.Money - new Credits(total),
+            Ship = state.Ship with { PinchReserve = state.Ship.PinchReserve + points },
+            Turnaround = check.Value with { LastOutcome = $"Charged {points} pinch points for {total:N0} credits in {hours} hour{(hours == 1 ? string.Empty : "s")}." },
+        });
+    }
+
+    public static CommandResult<GameState> Repair(GameState state, RepairService service) => Repair(state, service, 5_400, 1_800, "Mars Industrial Port");
+
+    public static CommandResult<GameState> Repair(GameState state, RepairService service, int certifiedCost, int fieldCost, string stationName)
     {
         CommandResult<TurnaroundState> check = RequireMutableTurnaround(state);
         if (!check.IsSuccess) return Fail(check.Error!);
@@ -79,8 +108,8 @@ public static class TurnaroundCommands
 
         (long cost, int hours, int removal, string provenance) = service switch
         {
-            RepairService.Certified => (5_400, 8, 12, "Mars Industrial Port certified drive service"),
-            RepairService.IlyaFieldService => (1_800, 5, 6, "Ilya Sato field service aboard Wayfarer"),
+            RepairService.Certified => (certifiedCost, 8, 12, $"{stationName} certified drive service"),
+            RepairService.IlyaFieldService => (fieldCost, 5, 6, "Ilya Sato field service aboard Wayfarer"),
             RepairService.Deferred => (0, 0, 0, "Repair deferred by command decision"),
             _ => throw new ArgumentOutOfRangeException(nameof(service)),
         };
@@ -142,42 +171,60 @@ public static class TurnaroundCommands
         });
     }
 
-    public static CommandResult<GameState> SelectContract(GameState state, ContractId contractId, int legalExposureOnAccept)
+    public static CommandResult<GameState> SelectContract(GameState state, ContractId contractId, int legalExposureOnAccept) =>
+        SelectContract(state, contractId, legalExposureOnAccept, null);
+
+    public static CommandResult<GameState> SelectContract(GameState state, ContractId contractId, int legalExposureOnAccept, InformationItemState? information)
     {
         CommandResult<TurnaroundState> check = RequireMutableTurnaround(state);
         if (!check.IsSuccess) return Fail(check.Error!);
         TurnaroundState turnaround = check.Value!;
         if (turnaround.SelectedContractId is not null) return Failure(CommandErrorCodes.OfferAlreadyClosed, "A turnaround contract is already selected; the competing opportunity is closed.");
-        if (state.Time.CompareTo(turnaround.OffersExpireAt) > 0) return Failure(CommandErrorCodes.OfferExpired, "Both Mars offers have expired. No second voyage can be authorized from this turnaround.");
+        if (state.Time.CompareTo(turnaround.OffersExpireAt) > 0) return Failure(CommandErrorCodes.OfferExpired, "The station contract offer has expired. No departure can be authorized from this preparation window.");
 
         ContractState? offered = state.AllContracts.SingleOrDefault(item => item.Id == contractId && item.IsTurnaroundOffer);
-        if (offered is null || offered.Status != ContractStatus.Offered) return Failure(CommandErrorCodes.ContractUnavailable, "That contract is not an open Mars turnaround offer.");
-        if (state.CargoAvailable < offered.Quantity) return Failure(CommandErrorCodes.InsufficientCapacity, $"The selected contract needs {offered.Quantity.Value} free tonnes; only {state.CargoAvailable.Value} remain in the hold.");
+        if (offered is null || offered.Status != ContractStatus.Offered || offered.OriginStationId != state.Ship.StationId)
+            return Failure(CommandErrorCodes.ContractUnavailable, "That contract is not an open offer at Wayfarer's current station.");
+        bool informationObjective = offered.Objective?.Kind == ContractObjectiveKind.Information;
+        if (!informationObjective && state.CargoAvailable < offered.Quantity)
+            return Failure(CommandErrorCodes.InsufficientCapacity, $"The selected contract needs {offered.Quantity.Value} free tonnes; only {state.CargoAvailable.Value} remain in the hold.");
+        if (informationObjective && (information is null || offered.Objective?.InformationId != information.Id))
+            return Failure(CommandErrorCodes.InformationMissing, "The accepted Sirius contract requires its issuer-signed information dossier.");
 
-        ContractState accepted = offered with { Status = ContractStatus.Accepted, AcceptedAt = state.Time, Outcome = "Selected for the Mars turnaround; issuer cargo locked in Wayfarer's hold." };
+        ContractState accepted = offered with
+        {
+            Status = ContractStatus.Accepted,
+            AcceptedAt = state.Time,
+            Outcome = informationObjective
+                ? "Accepted at the actual Sol origin; the issuer-signed forecast is secured as information cargo."
+                : "Selected for the Mars turnaround; issuer cargo locked in Wayfarer's hold.",
+        };
         IReadOnlyList<ContractState> contracts = state.AllContracts.Select(item => item.Id == contractId
             ? accepted
-            : item.IsTurnaroundOffer && item.Status == ContractStatus.Offered
+            : item.IsTurnaroundOffer && item.Status == ContractStatus.Offered && item.OriginStationId == state.Ship.StationId
                 ? item with { Status = ContractStatus.Transformed, SettledAt = state.Time, Outcome = "Closed when the competing Mars offer was selected; retained as transformed opportunity history." }
                 : item).ToArray();
 
         bool pluto = accepted.DestinationStationId.Value == "pluto-gateway";
-        IReadOnlyList<CrewMemberState> crew = ApplyDestinationConflict(state.Crew, state.Time, pluto);
+        IReadOnlyList<CrewMemberState> crew = turnaround.Mode == StationOperationsMode.MarsTurnaround
+            ? ApplyDestinationConflict(state.Crew, state.Time, pluto)
+            : state.Crew;
         bool noorAvailable = state.Crew.Any(item => item.Id.Value == "noor-okafor" && item.Available);
-        int confidence = pluto ? (noorAvailable ? 100 : 82) : (noorAvailable ? 85 : 55);
-        int exposure = checked(state.LegalExposure + legalExposureOnAccept + (!pluto && !noorAvailable ? 2 : 0));
-        string destination = pluto ? "Pluto Gateway" : "Ceres Freehold Anchorage";
+        int confidence = informationObjective ? information!.ConfidencePercent : pluto ? (noorAvailable ? 100 : 82) : (noorAvailable ? 85 : 55);
+        int exposure = checked(state.LegalExposure + legalExposureOnAccept + (!informationObjective && !pluto && !noorAvailable ? 2 : 0));
+        string destination = informationObjective ? "Sirius Meridian Exchange" : pluto ? "Pluto Gateway" : "Ceres Freehold Anchorage";
 
         return Success(state with
         {
             Contract = accepted,
             Contracts = contracts,
-            Cargo = [.. state.Cargo, new CargoLineState(accepted.CommodityId, accepted.Quantity, true, true)],
+            Cargo = informationObjective ? state.Cargo : [.. state.Cargo, new CargoLineState(accepted.CommodityId, accepted.Quantity, true, true)],
+            InformationCargo = informationObjective ? [.. state.AllInformationCargo.Where(item => item.Id != information!.Id), information!] : state.InformationCargo,
             Crew = crew,
             LegalExposure = exposure,
             ManifestConfidencePercent = confidence,
-            Turnaround = turnaround with { SelectedContractId = contractId, LastOutcome = $"Selected {destination}. The required cargo is sealed; the competing offer is now transformed history." },
-            Journey = state.Journey is null ? null : state.Journey with { ActiveContractId = contractId, LastOutcome = $"Mars turnaround contract selected for {destination}." },
+            Turnaround = turnaround with { SelectedContractId = contractId, LastOutcome = informationObjective ? $"Selected {destination}. The forecast is sealed as information cargo with {confidence}% confidence." : $"Selected {destination}. The required cargo is sealed; the competing offer is now transformed history." },
+            Journey = state.Journey is null ? null : state.Journey with { ActiveContractId = contractId, LastOutcome = $"Station contract selected for {destination}." },
         });
     }
 
@@ -186,11 +233,13 @@ public static class TurnaroundCommands
         CommandResult<TurnaroundState> check = RequireMutableTurnaround(state);
         if (!check.IsSuccess) return Fail(check.Error!);
         TurnaroundState turnaround = check.Value!;
+        bool sirius = turnaround.Mode == StationOperationsMode.SiriusPreparation;
         List<string> missing = [];
-        if (turnaround.LienDisposition is null) missing.Add("service or defer the inherited lien");
+        if (!sirius && turnaround.LienDisposition is null) missing.Add("service or defer the inherited lien");
         if (turnaround.RepairService is null) missing.Add("choose a repair or explicitly defer it");
-        if (turnaround.CrewRestService is null) missing.Add("complete a crew-rest plan");
-        if (turnaround.SelectedContractId is null) missing.Add("select one Mars contract");
+        if (!sirius && turnaround.CrewRestService is null) missing.Add("complete a crew-rest plan");
+        if (turnaround.SelectedContractId is null) missing.Add(sirius ? "accept the Sirius information contract" : "select one Mars contract");
+        if (sirius && state.Crew.Any(item => !item.Available)) missing.Add("return all four crew to available status");
         if (missing.Count > 0) return Failure(CommandErrorCodes.ServiceRequirementsNotMet, $"Before authorizing departure, {string.Join(", ", missing)}.");
 
         if (authoredRoute.OriginStationId != state.Ship.StationId || authoredRoute.DestinationStationId != state.Contract.DestinationStationId)
@@ -198,24 +247,34 @@ public static class TurnaroundCommands
 
         CrewMemberState? mara = state.Crew.SingleOrDefault(item => item.Id.Value == "mara-venn");
         bool maraProfileAvailable = mara is { Available: true, Fatigue: < 70 };
-        int fuelCost = authoredRoute.FuelCostPercent + (maraProfileAvailable ? 0 : 2);
-        int duration = authoredRoute.BaselineDurationHours + (maraProfileAvailable ? 0 : 4);
+        int fuelCost = authoredRoute.FuelCostPercent + (!sirius && !maraProfileAvailable ? 2 : 0);
+        int duration = authoredRoute.BaselineDurationHours + (!sirius && !maraProfileAvailable ? 4 : 0);
         RouteTravelState route = authoredRoute with
         {
             BaselineDurationHours = duration,
             FuelCostPercent = fuelCost,
-            EncounterAtHour = Math.Min(authoredRoute.EncounterAtHour, duration - 1),
+            EncounterAtHour = authoredRoute.UsesCheckpoints ? authoredRoute.EncounterAtHour : Math.Min(authoredRoute.EncounterAtHour, duration - 1),
             DepartedAt = state.Time,
             EstimatedArrival = state.Time.AddHours(duration),
             ElapsedBaselineHours = 0,
             DelayHours = 0,
         };
 
+        bool informationObjective = state.Contract.Objective?.Kind == ContractObjectiveKind.Information;
         CargoLineState? required = state.Cargo.SingleOrDefault(item => item.IsContractCargo && item.CommodityId == state.Contract.CommodityId);
-        if (required is null || !required.Sealed || required.Quantity < state.Contract.Quantity)
+        InformationItemState? information = state.Contract.Objective?.InformationId is InformationId informationId
+            ? state.AllInformationCargo.SingleOrDefault(item => item.Id == informationId)
+            : null;
+        if (!informationObjective && (required is null || !required.Sealed || required.Quantity < state.Contract.Quantity))
             return Failure(CommandErrorCodes.DepartureRequirementsNotMet, "The selected contract's free issuer cargo is not sealed at its required quantity.");
+        if (informationObjective && information is null)
+            return Failure(CommandErrorCodes.InformationMissing, "The Sirius industrial forecast is missing from Wayfarer's information cargo.");
+        if (state.Contract.Status != ContractStatus.Accepted)
+            return Failure(CommandErrorCodes.DepartureRequirementsNotMet, "The active station contract must be accepted before departure.");
         if (state.Ship.FuelPercent < fuelCost)
             return Failure(CommandErrorCodes.DepartureRequirementsNotMet, $"The {fuelCost}% route profile exceeds Wayfarer's {state.Ship.FuelPercent}% fuel state.");
+        if (state.Ship.PinchReserve < route.PinchCost)
+            return Failure(CommandErrorCodes.InsufficientPinchReserve, $"The route requires {route.PinchCost} pinch points; Wayfarer has {state.Ship.PinchReserve}.");
         if (state.Ship.DriveWearPercent + route.BaseDriveWearPercent > 100)
             return Failure(CommandErrorCodes.DepartureRequirementsNotMet, "The route's drive wear would exceed Wayfarer's mechanical limit.");
 
@@ -231,24 +290,26 @@ public static class TurnaroundCommands
             state.ReportDecision,
             state.Contract.Id,
             route.Id,
-            state.ManifestConfidencePercent);
+            state.ManifestConfidencePercent,
+            state.Ship.PinchReserve,
+            information?.Id);
 
         return CommandResult<GameState>.Success(state with
         {
             CommandSequence = acceptedSequence,
             DepartureAuthorized = true,
             DepartureManifest = manifest,
-            Turnaround = turnaround with { DepartureAuthorized = true, LastOutcome = "Second-voyage manifest authorized. Wayfarer is ready to leave Mars." },
+            Turnaround = turnaround with { DepartureAuthorized = true, LastOutcome = sirius ? "Sirius manifest authorized. Wayfarer is ready for its first interstellar crossing." : "Second-voyage manifest authorized. Wayfarer is ready to leave Mars." },
             Journey = state.Journey is null
                 ? null
-                : state.Journey with { Phase = JourneyPhase.DepartureAuthorized, Route = route, Encounter = null, DestinationManifest = null, VoyageNumber = 2, LastOutcome = "Second-voyage manifest authorized at Mars." },
+                : state.Journey with { Phase = JourneyPhase.DepartureAuthorized, Route = route, Encounter = null, DestinationManifest = null, VoyageNumber = sirius ? 3 : 2, LastOutcome = sirius ? "First interstellar departure authorized at the actual Sol origin." : "Second-voyage manifest authorized at Mars." },
         });
     }
 
     private static CommandResult<TurnaroundState> RequireMutableTurnaround(GameState state)
     {
         if (state.Turnaround is null || state.Ship.StationId != state.Turnaround.StationId)
-            return CommandResult<TurnaroundState>.Failure(CommandErrorCodes.TurnaroundUnavailable, "Mars turnaround services are available only after settling the first contract.");
+            return CommandResult<TurnaroundState>.Failure(CommandErrorCodes.TurnaroundUnavailable, "Station turnaround services are available only after settling the prior contract.");
         if (state.DepartureAuthorized || state.Turnaround.DepartureAuthorized)
             return CommandResult<TurnaroundState>.Failure(CommandErrorCodes.DepartureLocked, "The second-voyage departure manifest is authorized and locked.");
         return CommandResult<TurnaroundState>.Success(state.Turnaround);

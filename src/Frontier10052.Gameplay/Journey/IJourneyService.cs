@@ -9,9 +9,12 @@ public interface IJourneyService
     ValueTask<CommandResult<JourneySnapshot>> BeginVoyageAsync(string playerKey, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<JourneySnapshot>> AdvanceVoyageAsync(string playerKey, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<JourneySnapshot>> ResolveCurrentEncounterAsync(string playerKey, EncounterResponse response, CancellationToken cancellationToken = default);
+    ValueTask<CommandResult<JourneySnapshot>> ResolveCheckpointAsync(string playerKey, CheckpointResponse? response = null, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<JourneySnapshot>> ArriveAsync(string playerKey, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<JourneySnapshot>> SellCargoAsync(string playerKey, CommodityId commodityId, Tonnes quantity, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<JourneySnapshot>> DeliverCargoAsync(string playerKey, CancellationToken cancellationToken = default);
+    ValueTask<CommandResult<JourneySnapshot>> ClearSiriusCustomsAsync(string playerKey, CancellationToken cancellationToken = default);
+    ValueTask<CommandResult<JourneySnapshot>> SettleInformationContractAsync(string playerKey, CancellationToken cancellationToken = default);
 }
 
 public sealed record JourneySnapshot(
@@ -43,12 +46,22 @@ public sealed record JourneySnapshot(
     IReadOnlyList<JourneyFactionPresentation>? Factions = null,
     long LienPrincipal = 0,
     int LegalExposure = 0,
-    DestinationManifestPresentation? DestinationManifest = null);
+    DestinationManifestPresentation? DestinationManifest = null,
+    IReadOnlyList<CheckpointPresentation>? Checkpoints = null,
+    InformationJourneyPresentation? Information = null,
+    SiriusCustomsPresentation? SiriusCustoms = null,
+    JourneyAction? CustomsAction = null,
+    JourneyAction? InformationSettlementAction = null,
+    InformationSettlementPresentation? InformationSettlement = null);
 
 public sealed record CommanderJourneyPresentation(string DisplayName, string Initials);
-public sealed record ShipJourneyPresentation(string Name, string Hull, int CargoLoaded, int CargoCapacity, int FuelPercent, int DriveWearPercent);
-public sealed record RoutePresentation(string Id, string Name, string Origin, string Destination, int DurationHours, int FuelCost, int BaseWear, int EncounterHour, int ElapsedHours, int DelayHours, string EstimatedArrival, string ActualArrival, int ProgressPercent, string Profile = "");
-public sealed record JourneyAction(string Id, string Label, string Consequence, bool IsAvailable, string Explanation, EncounterResponse? Response = null);
+public sealed record ShipJourneyPresentation(string Name, string Hull, int CargoLoaded, int CargoCapacity, int FuelPercent, int DriveWearPercent, int PinchReserve = 0);
+public sealed record RoutePresentation(string Id, string Name, string Origin, string Destination, int DurationHours, int FuelCost, int BaseWear, int EncounterHour, int ElapsedHours, int DelayHours, string EstimatedArrival, string ActualArrival, int ProgressPercent, string Profile = "", int PinchCost = 0, bool UsesCheckpoints = false);
+public sealed record JourneyAction(string Id, string Label, string Consequence, bool IsAvailable, string Explanation, EncounterResponse? Response = null, CheckpointResponse? CheckpointResponse = null);
+public sealed record CheckpointPresentation(string Id, string Kind, string Title, string Detail, int ScheduledHour, string Status, string Outcome, IReadOnlyList<JourneyAction> Responses, bool IsNext);
+public sealed record InformationJourneyPresentation(string Id, string Title, string Disposition, int ConfidencePercent, IReadOnlyList<string> Provenance);
+public sealed record SiriusCustomsPresentation(bool Cleared, int DelayHours, string Origin, string Outcome);
+public sealed record InformationSettlementPresentation(string Disposition, bool OnTime, long Payment, long Claim, long CapitalizedClaim, string Outcome);
 public sealed record EncounterPresentation(string Id, string Title, string Detail, string Source, string Status, string Outcome, IReadOnlyList<JourneyAction> Responses);
 public sealed record JourneyCargoPresentation(string CommodityId, string Name, int Quantity, bool IsContractCargo, bool Sealed);
 public sealed record DestinationBidPresentation(string CommodityId, string Name, long UnitPrice, long Margin, int OwnedQuantity, JourneyAction SellAction, bool IsAtCurrentStation);

@@ -7,16 +7,16 @@ namespace Frontier10052.IntegrationTests;
 public sealed class ContentValidationTests
 {
     [TestMethod]
-    public void VerticalSliceV2IsCompleteAndValid()
+    public void VerticalSliceV3IsCompleteAndValid()
     {
         VerticalSliceContentPack pack = VerticalSliceContentPack.Create();
         ContentValidationResult result = ContentPackValidator.Validate(pack);
 
         Assert.IsTrue(result.IsValid, string.Join(Environment.NewLine, result.Errors.Select(error => error.Message)));
-        Assert.AreEqual("vertical-slice-v2", pack.Version);
-        Assert.HasCount(4, pack.Stations);
+        Assert.AreEqual("vertical-slice-v3", pack.Version);
+        Assert.HasCount(5, pack.Stations);
         Assert.HasCount(4, pack.Crew);
-        Assert.HasCount(6, pack.Commodities);
+        Assert.HasCount(7, pack.Commodities);
         Assert.AreEqual(new Tonnes(72), pack.Ship.CargoCapacity);
         Assert.AreEqual(84, pack.Ship.FuelPercent);
         Assert.AreEqual(17, pack.Ship.DriveWearPercent);
@@ -26,10 +26,14 @@ public sealed class ContentValidationTests
         Assert.AreEqual(new Credits(4_500), pack.Contract.FailurePenalty);
         Assert.AreEqual(38, pack.Route.DurationHours);
         Assert.AreEqual(18, pack.Route.EncounterAtHour);
-        Assert.HasCount(3, pack.Contracts);
-        Assert.HasCount(3, pack.Routes);
+        Assert.HasCount(4, pack.Contracts);
+        Assert.HasCount(5, pack.Routes);
         Assert.HasCount(5, pack.Encounters);
         Assert.HasCount(5, pack.MarsPrices);
+        Assert.HasCount(1, pack.Information);
+        Assert.HasCount(3, pack.StationServices);
+        Assert.IsTrue(pack.Routes.Where(route => route.DestinationStationId.Value == "sirius-meridian-exchange")
+            .All(route => route.Checkpoints?.Count == 5 && route.EncounterPool.Count == 0));
     }
 
     [TestMethod]
@@ -71,5 +75,38 @@ public sealed class ContentValidationTests
 
         CollectionAssert.Contains(codes, "contract.quantity");
         CollectionAssert.Contains(codes, "commodity.profit-range");
+    }
+
+    [TestMethod]
+    public void ValidatorRejectsSiriusDuplicateReferencesOrderingPinchAndFeasibility()
+    {
+        VerticalSliceContentPack valid = VerticalSliceContentPack.Create();
+        ContractDefinition siriusContract = valid.Contracts.Single(item => item.Id.Value == "scc-sirius-industrial-forecast");
+        RouteDefinition siriusRoute = valid.Routes.Single(item => item.Id.Value == "ceres-sirius-intelligence-run");
+        VerticalSliceContentPack invalid = valid with
+        {
+            Information = [.. valid.Information, valid.Information[0]],
+            Contracts = valid.Contracts.Select(item => item.Id == siriusContract.Id
+                ? item with { InformationId = new InformationId("missing-information") }
+                : item).ToArray(),
+            Routes = valid.Routes.Select(item => item.Id == siriusRoute.Id
+                ? item with
+                {
+                    DurationHours = 220,
+                    PinchCost = 0,
+                    Checkpoints = [.. item.Checkpoints!.Reverse()],
+                }
+                : item).ToArray(),
+        };
+
+        ContentValidationResult result = ContentPackValidator.Validate(invalid);
+        string[] codes = result.Errors.Select(error => error.Code).ToArray();
+
+        CollectionAssert.Contains(codes, "duplicate.information");
+        CollectionAssert.Contains(codes, "reference.contract-information");
+        CollectionAssert.Contains(codes, "route.checkpoint-order");
+        CollectionAssert.Contains(codes, "route.checkpoint-bounds");
+        CollectionAssert.Contains(codes, "route.checkpoint-pinch");
+        CollectionAssert.Contains(codes, "route.deadline");
     }
 }

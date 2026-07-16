@@ -32,7 +32,10 @@ public sealed record StationOperationsSnapshot(
     string RepairCondition = "No service record",
     int LegalExposure = 0,
     IReadOnlyList<FactionPresentation>? Factions = null,
-    string ImportantConsequences = "No persistent consequences recorded yet.");
+    string ImportantConsequences = "No persistent consequences recorded yet.",
+    string CurrentCheckpoint = "Docked",
+    int SiriusCompactStanding = 0,
+    int SiriusLaborStanding = 0);
 
 public sealed record FactionPresentation(string Id, string Name, int Standing);
 
@@ -45,7 +48,8 @@ public sealed record ShipPresentation(
     int CargoCapacity,
     int CargoAvailable,
     int FuelPercent,
-    int DriveWearPercent);
+    int DriveWearPercent,
+    int PinchReserve = 0);
 
 public sealed record CrewPresentation(
     string Id,

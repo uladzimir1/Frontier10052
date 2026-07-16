@@ -60,7 +60,7 @@ else
                 }
                 else
                 {
-                    <div class="journey-complete"><small>Second voyage complete · command @_snapshot.CommandSequence</small><h3 tabindex="-1" @ref="_completeHeading">@_snapshot.Contract.Status</h3><p>@_snapshot.LastOutcome</p><div class="faction-settlement">@foreach (JourneyFactionPresentation faction in _snapshot.Factions ?? []) { <span>@faction.Name <b>@faction.Standing.ToString("+#;-#;0")</b></span> }<span>Legal exposure <b>@_snapshot.LegalExposure</b></span></div><a href="/play">Return to launcher</a></div>
+                    <div class="journey-complete"><small>Second voyage complete · command @_snapshot.CommandSequence</small><h3 tabindex="-1" @ref="_completeHeading">Sirius offer received</h3><p>@_snapshot.LastOutcome</p><div class="faction-settlement">@foreach (JourneyFactionPresentation faction in _snapshot.Factions ?? []) { <span>@faction.Name <b>@faction.Standing.ToString("+#;-#;0")</b></span> }<span>Legal exposure <b>@_snapshot.LegalExposure</b></span></div><button class="mars-next" @onclick="ContinueTurnaround">Prepare the first interstellar crossing</button></div>
                 }
             </section>
         }

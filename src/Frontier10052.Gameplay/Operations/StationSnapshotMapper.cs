@@ -16,6 +16,7 @@ internal static class StationSnapshotMapper
         {
             JourneyPhase.InTransit or JourneyPhase.EncounterPending => state.Journey?.Route is null ? "Transfer orbit" : $"{pack.Text(pack.Stations.Single(item => item.Id == state.Journey.Route.OriginStationId).NameKey)}–{pack.Text(pack.Stations.Single(item => item.Id == state.Journey.Route.DestinationStationId).NameKey)} transfer",
             JourneyPhase.Approach => $"{pack.Text(destination.NameKey)} approach corridor",
+            JourneyPhase.CustomsPending => $"{pack.Text(location.NameKey)} customs concourse",
             _ => pack.Text(location.NameKey),
         };
         string locationDetail = state.Journey?.Phase switch
@@ -135,7 +136,8 @@ internal static class StationSnapshotMapper
                 state.Ship.CargoCapacity.Value,
                 state.CargoAvailable.Value,
                 state.Ship.FuelPercent,
-                state.Ship.DriveWearPercent),
+                state.Ship.DriveWearPercent,
+                state.Ship.PinchReserve),
             crew,
             new ContractPresentation(
                 state.Contract.Id.Value,
@@ -179,8 +181,11 @@ internal static class StationSnapshotMapper
             state.Lien?.Principal.Value ?? 72_000,
             state.Maintenance is null ? $"{state.Ship.DriveWearPercent}% drive wear" : state.Maintenance.RepairDeferred ? $"Deferred · {state.Ship.DriveWearPercent}% drive wear" : $"{state.Maintenance.DriveConditionPercent}% drive condition · {state.Maintenance.RepairHistory.Count} service records",
             state.LegalExposure,
-            state.AllFactionStandings.Select(item => new FactionPresentation(item.FactionId, item.FactionId == FactionIds.TerranContinuityAuthority ? "Terran Continuity Authority" : "Kuiper Syndicates", item.Standing)).ToArray(),
-            ImportantConsequences(state));
+            state.AllFactionStandings.Select(item => new FactionPresentation(item.FactionId, FactionName(item.FactionId), item.Standing)).ToArray(),
+            ImportantConsequences(state),
+            CurrentCheckpoint(state),
+            state.AllFactionStandings.SingleOrDefault(item => item.FactionId == FactionIds.SiriusCorporateCompact)?.Standing ?? 0,
+            state.AllFactionStandings.SingleOrDefault(item => item.FactionId == FactionIds.SiriusLabor)?.Standing ?? 0);
     }
 
     public static string FormatReportDecision(ReportDecision decision) => decision switch
@@ -213,7 +218,22 @@ internal static class StationSnapshotMapper
     private static string ImportantConsequences(GameState state)
     {
         CrewMemoryState? memory = state.Crew.SelectMany(item => item.Memories ?? []).OrderByDescending(item => item.RecordedAt.HoursSinceStart).FirstOrDefault();
-        string faction = string.Join(" · ", state.AllFactionStandings.Select(item => $"{(item.FactionId == FactionIds.TerranContinuityAuthority ? "TCA" : "Kuiper Syndicates")} {item.Standing:+#;-#;0}"));
+        string faction = string.Join(" · ", state.AllFactionStandings.Select(item => $"{FactionName(item.FactionId)} {item.Standing:+#;-#;0}"));
         return memory is null ? faction : $"{memory.Summary} {faction}";
     }
+
+    private static string CurrentCheckpoint(GameState state)
+    {
+        RouteCheckpointState? next = state.Journey?.Route?.AllCheckpoints.FirstOrDefault(item => item.Status == CheckpointResolutionStatus.Pending);
+        return next is null ? state.Journey?.Phase.ToString() ?? "Docked" : $"{next.Kind} · T+{next.ScheduledHour}h";
+    }
+
+    private static string FactionName(string factionId) => factionId switch
+    {
+        FactionIds.TerranContinuityAuthority => "TCA",
+        FactionIds.KuiperSyndicates => "Kuiper Syndicates",
+        FactionIds.SiriusCorporateCompact => "Sirius Compact",
+        FactionIds.SiriusLabor => "Sirius labor",
+        _ => factionId,
+    };
 }

@@ -85,12 +85,19 @@ public sealed class GameSessionCoordinator
 
         bool schema1 = envelope.StateSchemaVersion == 1 && envelope.ContentPackVersion == VerticalSliceContentPack.LegacyPackVersion;
         bool schema2 = envelope.StateSchemaVersion == 2 && envelope.ContentPackVersion == VerticalSliceContentPack.Schema2PackVersion;
+        bool schema3 = envelope.StateSchemaVersion == 3 && envelope.ContentPackVersion == VerticalSliceContentPack.Schema3PackVersion;
         bool current = envelope.StateSchemaVersion == GameState.CurrentSchemaVersion && envelope.ContentPackVersion == Content.Version;
-        if (!schema1 && !schema2 && !current) return CommandResult<GameState>.Failure(CommandErrorCodes.SaveIncompatible, "The local journey uses an incompatible content or save schema version. Start a new commander to recover.");
+        if (!schema1 && !schema2 && !schema3 && !current) return CommandResult<GameState>.Failure(CommandErrorCodes.SaveIncompatible, "The local journey uses an incompatible content or save schema version. Start a new commander to recover.");
 
-        GameState state = schema1 ? MigrateV2(MigrateV1(envelope.State)) : schema2 ? MigrateV2(envelope.State) : envelope.State;
+        GameState state = schema1
+            ? MigrateSchema3To4(MigrateSchema2To3(MigrateSchema1To2(envelope.State)))
+            : schema2
+                ? MigrateSchema3To4(MigrateSchema2To3(envelope.State))
+                : schema3
+                    ? MigrateSchema3To4(envelope.State)
+                    : envelope.State;
         if (state.Journey is null) return CommandResult<GameState>.Failure(CommandErrorCodes.SaveIncompatible, "The journey phase is missing from the save.");
-        if ((schema1 || schema2) && rewriteMigration)
+        if ((schema1 || schema2 || schema3) && rewriteMigration)
         {
             CommandResult<GameSaveEnvelope> rewritten = await _saveStore.SaveAsync(key, CreateEnvelope(state), true, cancellationToken);
             if (!rewritten.IsSuccess) return Failure(rewritten.Error!);
@@ -98,7 +105,7 @@ public sealed class GameSessionCoordinator
         return CommandResult<GameState>.Success(state);
     }
 
-    private GameState MigrateV1(GameState state)
+    private GameState MigrateSchema1To2(GameState state)
     {
         JourneyPhase phase = state.DepartureAuthorized ? JourneyPhase.DepartureAuthorized : JourneyPhase.DockedAtOrigin;
         DestinationMarketState marsMarket = VerticalSliceGameFactory.CreateDestinationMarket(Content, state.Market.Listings);
@@ -110,7 +117,7 @@ public sealed class GameSessionCoordinator
         };
     }
 
-    private GameState MigrateV2(GameState state)
+    private GameState MigrateSchema2To3(GameState state)
     {
         JourneyState journey = state.Journey ?? new JourneyState(
             state.DepartureAuthorized ? JourneyPhase.DepartureAuthorized : JourneyPhase.DockedAtOrigin,
@@ -167,7 +174,7 @@ public sealed class GameSessionCoordinator
 
         return state with
         {
-            SchemaVersion = GameState.CurrentSchemaVersion,
+            SchemaVersion = 3,
             Crew = crew,
             Contract = initial,
             Contracts = contracts,
@@ -186,8 +193,82 @@ public sealed class GameSessionCoordinator
         };
     }
 
+    internal GameState MigrateSchema3To4(GameState state)
+    {
+        IReadOnlyList<ContractState> contracts = state.AllContracts.Select(contract =>
+        {
+            ContractDefinition? definition = Content.Contracts.SingleOrDefault(item => item.Id == contract.Id);
+            return definition is null ? contract : contract with
+            {
+                Objective = CreateObjective(definition),
+                AcceptanceExpiresAt = definition.AcceptanceWindowHours > 0 && contract.OfferedAt is not null
+                    ? contract.OfferedAt.Value.AddHours(definition.AcceptanceWindowHours)
+                    : contract.AcceptanceExpiresAt,
+            };
+        }).ToArray();
+
+        ContractState active = contracts.SingleOrDefault(item => item.Id == state.Contract.Id) ?? state.Contract;
+        bool settledAtSiriusOrigin = state.Ship.StationId.Value is "ceres-freehold-anchorage" or "pluto-gateway"
+            && active.Status is ContractStatus.Completed or ContractStatus.Failed
+            && state.Journey?.VoyageNumber == 2;
+        TurnaroundState? turnaround = state.Turnaround;
+        JourneyState? journey = state.Journey;
+        bool departureAuthorized = state.DepartureAuthorized;
+        if (settledAtSiriusOrigin)
+        {
+            ContractState offer = CreateSiriusOffer(state.Time, state.Ship.StationId);
+            contracts = [.. contracts.Where(item => item.Id != offer.Id), offer];
+            turnaround = new TurnaroundState(
+                state.Ship.StationId,
+                state.Time,
+                offer.AcceptanceExpiresAt ?? state.Time.AddHours(36),
+                null,
+                null,
+                null,
+                null,
+                false,
+                "Schema-3 destination settlement migrated into a Sirius intelligence offer without advancing the clock.",
+                StationOperationsMode.SiriusPreparation);
+            journey = journey is null ? null : journey with
+            {
+                Phase = JourneyPhase.Turnaround,
+                LastOutcome = "Sirius intelligence offer received at the completed second-voyage destination.",
+            };
+            departureAuthorized = false;
+        }
+
+        IReadOnlyList<StationMarketState> markets =
+        [
+            .. state.AllStationMarkets,
+            .. Content.StationMarkets.Where(definition => state.AllStationMarkets.All(item => item.StationId != definition.StationId))
+                .Select(definition => new StationMarketState(definition.StationId, [])),
+        ];
+        IReadOnlyList<FactionStandingState> standings =
+        [
+            .. state.AllFactionStandings,
+            .. new[] { FactionIds.SiriusCorporateCompact, FactionIds.SiriusLabor }
+                .Where(id => state.AllFactionStandings.All(item => item.FactionId != id))
+                .Select(id => new FactionStandingState(id, 0)),
+        ];
+
+        return state with
+        {
+            SchemaVersion = GameState.CurrentSchemaVersion,
+            Contract = active,
+            Contracts = contracts,
+            StationMarkets = markets,
+            FactionStandings = standings,
+            Turnaround = turnaround,
+            Journey = journey,
+            DepartureAuthorized = departureAuthorized,
+            InformationCargo = state.InformationCargo ?? [],
+            ContractTransformations = state.ContractTransformations ?? [],
+            DebtLedger = state.DebtLedger ?? [],
+        };
+    }
+
     internal IReadOnlyList<ContractState> CreateTurnaroundOffers(GameTime offeredAt) => Content.Contracts
-        .Where(definition => definition.IsTurnaroundOffer)
+        .Where(definition => definition.IsTurnaroundOffer && definition.AllOriginStationIds.Contains(new StationId("mars-industrial-port")))
         .Select(definition => new ContractState(
             definition.Id,
             definition.OriginStationId,
@@ -200,8 +281,36 @@ public sealed class GameSessionCoordinator
             ContractStatus.Offered,
             definition.IssuerFactionId,
             true,
-            offeredAt))
+            offeredAt,
+            Objective: CreateObjective(definition)))
         .ToArray();
+
+    internal ContractState CreateSiriusOffer(GameTime offeredAt, StationId origin)
+    {
+        ContractDefinition definition = Content.Contracts.Single(item => item.Id.Value == "scc-sirius-industrial-forecast");
+        if (!definition.AllOriginStationIds.Contains(origin)) throw new InvalidOperationException($"Sirius offer cannot originate at {origin}.");
+        return new ContractState(
+            definition.Id,
+            origin,
+            definition.DestinationStationId,
+            definition.CommodityId,
+            definition.Quantity,
+            offeredAt.AddHours(definition.DeadlineHours),
+            definition.Reward,
+            definition.FailurePenalty,
+            ContractStatus.Offered,
+            definition.IssuerFactionId,
+            true,
+            offeredAt,
+            Objective: CreateObjective(definition),
+            AcceptanceExpiresAt: offeredAt.AddHours(definition.AcceptanceWindowHours));
+    }
+
+    internal static ContractObjectiveState CreateObjective(ContractDefinition definition) => definition.ObjectiveKind switch
+    {
+        ContractObjectiveDefinitionKind.Information => new ContractObjectiveState(ContractObjectiveKind.Information, null, new Tonnes(0), definition.InformationId),
+        _ => new ContractObjectiveState(ContractObjectiveKind.Cargo, definition.CommodityId, definition.Quantity, null),
+    };
 
     private GameSaveEnvelope CreateEnvelope(GameState state)
     {

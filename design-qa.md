@@ -143,3 +143,29 @@ final result: passed
 - Browser console errors: 0. Unhandled page errors: 0. HTTP responses ≥ 400: 0.
 
 final result: passed
+
+## First interstellar crossing — Sirius intelligence run
+
+### Evidence
+
+- Desktop Ceres preparation, undock, delayed warning, lattice resolution, customs, and disclosure settlement: `doc/design/sirius-ceres-preparation-1536x1000.png`, `doc/design/sirius-ceres-undock-1536x1000.png`, `doc/design/sirius-labor-warning-1536x1000.png`, `doc/design/sirius-lattice-resolved-1536x1000.png`, `doc/design/sirius-customs-1536x1000.png`, and `doc/design/sirius-disclosure-settlement-1536x1000.png` at 1536 × 1000.
+- Mobile Pluto preparation, delayed warning, reduced-motion travel, and settlement: `doc/design/sirius-pluto-preparation-390x844.png`, `doc/design/sirius-pluto-warning-390x844.png`, `doc/design/sirius-pluto-reduced-motion-390x844.png`, and `doc/design/sirius-pluto-settlement-390x844.png` at 390 × 844.
+- Both actual second-voyage destinations were played into the Sirius offer. Preserve, corroborate, and disclose outcomes were exercised from immutable authorized saves for both origins; Mara pinch correction and Ilya recalibration were each completed on a full voyage.
+
+### Design review findings and fixes
+
+- [P1 fixed] Sirius destination settlement originally needed to share the operations route with outbound preparation without exposing an impossible second departure form. Operations now selects station preparation, customs, or information settlement from authoritative journey phase and location.
+- [P2 fixed] The existing travel workspace described legacy encounters as its only interruption model. It now renders ordered, authored checkpoint stages for undock, gravity boundary, delayed message, lattice drift, and approach while preserving legacy voyage presentation.
+- [P2 fixed] Launcher continuation lacked interstellar resources and consequence context. It now reports real origin, current checkpoint, pinch reserve, crew memory, inherited lien, and Sirius Compact/labor standings.
+- [P2 fixed] The unavailable Mara response needed to identify the exact missing resource. Disabled response copy now distinguishes the six-pinch requirement from the three-wear-point headroom requirement.
+- No unresolved P0, P1, or P2 findings remain. Sirius presentation preserves the approved near-black cinematic plate, sparse ice-blue signal hierarchy, square geometry, fine-rule progress rail, diegetic manifest language, and restrained action density.
+
+### Runtime, accessibility, and responsive verification
+
+- Ceres displayed checkpoints at T+2, T+12, T+58, T+106, and T+164; Pluto displayed T+2, T+10, T+52, T+94, and T+148. Reloads at undock, message-to-lattice transition, and customs restored the exact authoritative stage.
+- Keyboard activation replayed the current presentation-only checkpoint without changing the persisted lattice phase. Settlement moved focus to its outcome heading, and keyboard focus retained the intended 2-pixel ice-blue outline.
+- Mobile viewport, document, and body widths were exactly 390 pixels. A `prefers-reduced-motion: reduce` context reported zero running animations and zero long-running animations while every command remained available.
+- Browser verification reported 0 console errors, 0 unhandled page errors, and 0 HTTP responses ≥ 400.
+- Release build completed with 0 warnings and 0 errors. All 80 tests passed locally and inside clean Podman and Docker test images. Published runtime images from both engines returned HTTP 200 for the rendered application; Docker also returned HTTP 200 for `/play`.
+
+final result: passed

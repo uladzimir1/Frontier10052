@@ -1,0 +1,72 @@
+@inject IJourneyService Journey
+
+@if (_snapshot is not null)
+{
+    <aside class="operations-rail sirius-rail" aria-label="Sirius customs and settlement sections">
+        <p class="rail-kicker">Voyage 03 · Sirius arrival</p><h1>Sirius Meridian Exchange</h1><span class="rail-sequence">Seed @_snapshot.Seed · command @_snapshot.CommandSequence</span>
+        <nav>
+            <button class="@(_active == 1 ? "active" : null) @(_snapshot.SiriusCustoms?.Cleared == true ? "complete" : null)" @onclick="() => _active = 1"><small>01</small><span>Customs</span><i></i></button>
+            <button class="@(_active == 2 ? "active" : null) @(_snapshot.Information is not null ? "complete" : null)" @onclick="() => _active = 2"><small>02</small><span>Forecast</span><i></i></button>
+            <button class="@(_active == 3 ? "active" : null) @(_snapshot.InformationSettlement is not null ? "complete" : null)" @onclick="() => _active = 3"><small>03</small><span>Settlement</span><i></i></button>
+        </nav>
+        <div class="rail-route"><small>Completed crossing</small><b>@_snapshot.Route.Origin</b><i></i><b>@_snapshot.Route.Destination</b><span>@_snapshot.Route.DurationHours h baseline · @_snapshot.Route.DelayHours h route delay</span></div>
+    </aside>
+
+    <main class="operations-workspace sirius-workspace">
+        @if (_error is not null) { <div class="operations-error" role="alert"><b>Command not accepted</b><span>@_error</span><button @onclick="() => _error = null">Dismiss</button></div> }
+        @if (_active == 1)
+        {
+            <section class="workspace-section sirius-customs"><div class="workspace-heading"><p>01 · Separate customs command</p><h2>@(_snapshot.SiriusCustoms?.Cleared == true ? "Wayfarer is cleared into Meridian custody." : "The berth is secure. Settlement is not.")</h2><span>Customs time is max(1, origin base plus capped legal exposure). Pluto begins three hours faster; Noor carries half the delay as fatigue, rounded up.</span></div>
+                <div class="arrival-ledger"><article><small>Actual arrival</small><b>@_snapshot.Route.ActualArrival</b><span>@_snapshot.Route.DelayHours h message and mechanical delay</span></article><article><small>Origin</small><b>@(_snapshot.SiriusCustoms?.Origin ?? _snapshot.Route.Origin)</b><span>@(_snapshot.SiriusCustoms?.Origin == "Pluto Gateway" ? "Outer-system customs credit −3 h" : "Standard Ceres customs profile")</span></article><article><small>Legal exposure</small><b>@_snapshot.LegalExposure</b><span>Up to six hours added to customs review</span></article></div>
+                @if (_snapshot.SiriusCustoms?.Cleared == true) { <div class="journey-complete"><small>Customs cleared · @_snapshot.SiriusCustoms.DelayHours h</small><h3>@_snapshot.SiriusCustoms.Outcome</h3><button class="mars-next" @onclick="() => _active = 2">Inspect information custody</button></div> }
+                else if (_snapshot.CustomsAction is not null) { <CommandButton Action="_snapshot.CustomsAction" Busy="_busy" OnClick="ClearCustoms" /> }
+            </section>
+        }
+        else if (_active == 2)
+        {
+            <section class="workspace-section information-settlement"><div class="workspace-heading"><p>02 · Information custody</p><h2>@(_snapshot.Information?.Title ?? "Forecast unavailable")</h2><span>The delivered artifact keeps source, confidence, disposition, and the warning-response chain visible.</span></div>
+                @if (_snapshot.Information is not null)
+                {
+                    <div class="information-dossier"><div><small>Disposition</small><b>@(_snapshot.InformationSettlement?.Disposition ?? _snapshot.Information.Disposition)</b></div><div><small>Confidence</small><b>@_snapshot.Information.ConfidencePercent%</b></div><div><small>Deadline margin</small><b>@_snapshot.Contract.HoursRemaining h</b></div></div>
+                    <ol class="provenance-list">@foreach (string entry in _snapshot.Information.Provenance) { <li>@entry</li> }</ol>
+                }
+                <button class="mars-next" @onclick="() => _active = 3">Review settlement consequences</button>
+            </section>
+        }
+        else
+        {
+            <section class="workspace-section sirius-settlement"><div class="workspace-heading"><p>03 · Persistent settlement</p><h2 tabindex="-1" @ref="_settlementHeading">@(_snapshot.InformationSettlement is null ? "Settle the forecast at the deadline boundary." : "Wayfarer has a permanent Sirius berth.")</h2><span>@_snapshot.LastOutcome</span></div>
+                @if (_snapshot.InformationSettlement is null)
+                {
+                    <div class="delivery-proof"><article><small>Current disposition</small><b>@(_snapshot.Information?.Disposition ?? "Missing")</b><span>@_snapshot.Information?.ConfidencePercent% confidence</span></article><article><small>Deadline</small><b>@_snapshot.Contract.HoursRemaining h</b><span>Equality counts as on time · @_snapshot.Contract.DeadlineLabel</span></article><article><small>Claim ceiling</small><b>@Credits(_snapshot.Contract.FailurePenalty)</b><span>Cash first; any shortfall capitalizes into the inherited lien</span></article></div>
+                    @if (_snapshot.InformationSettlementAction is not null) { <CommandButton Action="_snapshot.InformationSettlementAction" Busy="_busy" OnClick="Settle" /> }
+                }
+                else
+                {
+                    <div class="settlement-ledger"><article><small>Disposition</small><b>@_snapshot.InformationSettlement.Disposition</b><span>@(_snapshot.InformationSettlement.OnTime ? "On time" : "Late")</span></article><article><small>Payment / claim</small><b>+@Credits(_snapshot.InformationSettlement.Payment) / −@Credits(_snapshot.InformationSettlement.Claim)</b><span>@Credits(_snapshot.InformationSettlement.CapitalizedClaim) capitalized</span></article><article><small>Inherited lien</small><b>@Credits(_snapshot.LienPrincipal)</b><span>Debt ledger and settlement history persisted</span></article></div>
+                    <div class="faction-settlement">@foreach (JourneyFactionPresentation faction in (_snapshot.Factions ?? []).Where(item => item.Id is "sirius-corporate-compact" or "sirius-labor")) { <span>@faction.Name <b>@faction.Standing.ToString("+#;-#;0")</b></span> }<span>Commercial trust <b>@_snapshot.Finances.CommercialTrust.ToString("+#;-#;0")</b></span></div>
+                    <div class="journey-complete"><small>Schema @_snapshot.SchemaVersion · command @_snapshot.CommandSequence</small><h3>Sirius Meridian Exchange settlement persistent</h3><p>@_snapshot.InformationSettlement.Outcome</p><a href="/play">Return to launcher</a></div>
+                }
+            </section>
+        }
+    </main>
+
+    <aside class="manifest-panel sirius-manifest" aria-label="Sirius information settlement manifest"><div class="manifest-commander"><span>@_snapshot.Commander.Initials</span><p><b>@_snapshot.Commander.DisplayName</b><small>Sirius Meridian Exchange · @_snapshot.GameTimeLabel</small></p></div><section><p>Information cargo</p><b>@(_snapshot.Information?.Disposition ?? "Unavailable")</b><small>@(_snapshot.Information?.Title ?? "No active dossier")</small></section><section class="manifest-finance"><div><small>Available</small><b>@Credits(_snapshot.Finances.Credits)</b></div><div><small>Inherited lien</small><b>@Credits(_snapshot.LienPrincipal)</b></div><div><small>Legal exposure</small><b>@_snapshot.LegalExposure</b></div></section><section><p>Last consequence</p><small>@_snapshot.LastOutcome</small></section><footer><span>@_snapshot.ContentPackVersion</span><span>Schema @_snapshot.SchemaVersion</span><span>Command @_snapshot.CommandSequence</span></footer></aside>
+}
+
+@code {
+    [Parameter, EditorRequired] public JourneySnapshot InitialSnapshot { get; set; } = null!;
+    [Parameter, EditorRequired] public string PlayerKey { get; set; } = string.Empty;
+    private JourneySnapshot? _snapshot;
+    private int _active = 1;
+    private bool _busy;
+    private bool _focusSettlement;
+    private string? _error;
+    private ElementReference _settlementHeading;
+    protected override void OnInitialized() { _snapshot = InitialSnapshot; _active = _snapshot.InformationSettlement is not null ? 3 : _snapshot.SiriusCustoms?.Cleared == true ? 2 : 1; }
+    private async Task ClearCustoms() { await Run(() => Journey.ClearSiriusCustomsAsync(PlayerKey)); if (_snapshot?.SiriusCustoms?.Cleared == true) _active = 2; }
+    private async Task Settle() { await Run(() => Journey.SettleInformationContractAsync(PlayerKey)); if (_snapshot?.InformationSettlement is not null) { _focusSettlement = true; _active = 3; } }
+    protected override async Task OnAfterRenderAsync(bool firstRender) { if (!_focusSettlement) return; _focusSettlement = false; await _settlementHeading.FocusAsync(preventScroll: true); }
+    private async Task Run(Func<ValueTask<CommandResult<JourneySnapshot>>> command) { if (_busy) return; _busy = true; _error = null; CommandResult<JourneySnapshot> result = await command(); _busy = false; if (result.IsSuccess) _snapshot = result.Value; else _error = result.Error?.Message; }
+    private static string Credits(long value) => $"{value:N0} cr";
+}

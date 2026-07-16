@@ -29,10 +29,20 @@
             <p>Wayfarer / Flight @_snapshot.VoyageNumber.ToString("00")</p><h1 id="travel-title">@_snapshot.Route.Origin to @_snapshot.Route.Destination</h1>
             <span>Seed @_snapshot.Seed · command @_snapshot.CommandSequence</span>
             <ol aria-label="Journey progress">
-                <li class="@StepClass(1)"><i></i><span><small>01</small>Undock</span></li>
-                <li class="@StepClass(2)"><i></i><span><small>02</small>Transfer orbit</span></li>
-                <li class="@StepClass(3)"><i></i><span><small>03</small>Contact</span></li>
-                <li class="@StepClass(4)"><i></i><span><small>04</small>Destination approach</span></li>
+                @if (_snapshot.Route.UsesCheckpoints)
+                {
+                    @foreach (CheckpointPresentation checkpoint in _snapshot.Checkpoints ?? [])
+                    {
+                        <li class="@(checkpoint.Status == "Resolved" ? "complete" : checkpoint.IsNext ? "active" : null)"><i></i><span><small>T+@checkpoint.ScheduledHour</small>@checkpoint.Title</span></li>
+                    }
+                }
+                else
+                {
+                    <li class="@StepClass(1)"><i></i><span><small>01</small>Undock</span></li>
+                    <li class="@StepClass(2)"><i></i><span><small>02</small>Transfer orbit</span></li>
+                    <li class="@StepClass(3)"><i></i><span><small>03</small>Contact</span></li>
+                    <li class="@StepClass(4)"><i></i><span><small>04</small>Destination approach</span></li>
+                }
             </ol>
             <div class="travel-route-mini"><b>@_snapshot.Route.Origin</b><span></span><b>@_snapshot.Route.Destination</b><small>@_snapshot.Route.DurationHours h baseline · @_snapshot.Route.DelayHours h delay</small></div>
         </aside>
@@ -44,8 +54,8 @@
             {
                 <section class="travel-stage route-confirmation">
                     <p>Authorized route / final commit</p><h2>Leave @_snapshot.Route.Origin for @_snapshot.Route.Destination.</h2>
-                    <span>The manifest is locked. This command commits fuel and wear, clears the berth, and changes Wayfarer’s authoritative location to transit.</span>
-                    <span>@_snapshot.Route.Profile</span><div class="route-metrics"><article><small>Baseline</small><b>@_snapshot.Route.DurationHours hours</b><span>@_snapshot.Route.EstimatedArrival</span></article><article><small>Fuel</small><b>−@_snapshot.Route.FuelCost%</b><span>@_snapshot.Ship.FuelPercent% available</span></article><article><small>Drive wear</small><b>+@_snapshot.Route.BaseWear%</b><span>@_snapshot.Ship.DriveWearPercent% current</span></article><article><small>Contact window</small><b>T+@_snapshot.Route.EncounterHour h</b><span>Route-specific deterministic interruption</span></article></div>
+                    <span>The manifest is locked. This command commits the T+2 undock only on Sirius routes; later resources remain atomic at the gravity boundary.</span>
+                    <span>@_snapshot.Route.Profile</span><div class="route-metrics"><article><small>Baseline</small><b>@_snapshot.Route.DurationHours hours</b><span>@_snapshot.Route.EstimatedArrival</span></article><article><small>Fuel</small><b>−@_snapshot.Route.FuelCost%</b><span>@_snapshot.Ship.FuelPercent% available</span></article><article><small>Drive wear</small><b>+@_snapshot.Route.BaseWear%</b><span>@_snapshot.Ship.DriveWearPercent% current</span></article><article><small>@(_snapshot.Route.UsesCheckpoints ? "Base pinch" : "Contact window")</small><b>@(_snapshot.Route.UsesCheckpoints ? $"−{_snapshot.Route.PinchCost}" : $"T+{_snapshot.Route.EncounterHour} h")</b><span>@(_snapshot.Route.UsesCheckpoints ? $"{_snapshot.Ship.PinchReserve} reserve aboard" : "Route-specific deterministic interruption")</span></article></div>
                     <CommandButton Action="_snapshot.BeginAction" Busy="_busy" OnClick="Begin" />
                 </section>
             }
@@ -60,6 +70,32 @@
                             <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button disabled="@(!action.IsAvailable || _busy)" @onclick="() => Resolve(action.Response!.Value)">Choose response</button></article>
                         }
                     </div>
+                </section>
+            }
+            else if (_snapshot.Phase == JourneyPhase.InTransit && _snapshot.Route.UsesCheckpoints)
+            {
+                CheckpointPresentation? checkpoint = (_snapshot.Checkpoints ?? []).FirstOrDefault(item => item.IsNext);
+                <section class="travel-stage checkpoint-stage" tabindex="-1">
+                    <p>Sirius crossing / @(checkpoint?.Kind ?? "checkpoint") / T+@(checkpoint?.ScheduledHour ?? 0)h</p><h2>@(checkpoint?.Title ?? "Route checkpoint")</h2><span>@(checkpoint?.Detail ?? _snapshot.LastOutcome)</span>
+                    <div class="checkpoint-cinematic" aria-label="Presentation-only checkpoint visualization"><i></i><b>WAYFARER // @checkpoint?.Kind</b><small>Replayable presentation · authoritative state already loaded from the save</small></div>
+                    @if (checkpoint?.Responses.Count > 0)
+                    {
+                        <div class="encounter-responses">
+                            @foreach (JourneyAction action in checkpoint.Responses)
+                            {
+                                <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button disabled="@(!action.IsAvailable || _busy)" @onclick="() => ResolveCheckpoint(action.CheckpointResponse)">Choose response</button></article>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <CommandButton Action="_snapshot.AdvanceAction" Busy="_busy" OnClick="AdvanceCheckpoint" />
+                    }
+                    @if ((_snapshot.Checkpoints ?? []).Any(item => item.Status == "Resolved"))
+                    {
+                        <details class="checkpoint-journal"><summary>Replay resolved presentations</summary>@foreach (CheckpointPresentation resolved in (_snapshot.Checkpoints ?? []).Where(item => item.Status == "Resolved")) { <button type="button" @onclick="() => _replayCheckpoint = resolved">Replay @resolved.Title</button> }</details>
+                    }
+                    @if (_replayCheckpoint is not null) { <aside class="checkpoint-replay" role="status"><button type="button" aria-label="Close replay" @onclick="() => _replayCheckpoint = null">×</button><small>T+@_replayCheckpoint.ScheduledHour h · presentation replay</small><b>@_replayCheckpoint.Title</b><span>@_replayCheckpoint.Outcome</span></aside> }
                 </section>
             }
             else if (_snapshot.Phase == JourneyPhase.InTransit)
@@ -88,7 +124,7 @@
         <aside class="travel-telemetry" aria-label="Wayfarer telemetry">
             <div class="travel-commander"><span>@_snapshot.Commander.Initials</span><p><b>@_snapshot.Commander.DisplayName</b><small>Independent hauler</small></p></div>
             <section><p>Route progress</p><div class="travel-meter"><span style="width:@_snapshot.Route.ProgressPercent%"></span></div><b>@_snapshot.Route.ElapsedHours / @_snapshot.Route.DurationHours h</b><small>@_snapshot.Route.ProgressPercent% baseline complete</small></section>
-            <section class="telemetry-grid"><div><small>Fuel</small><b>@_snapshot.Ship.FuelPercent%</b></div><div><small>Wear</small><b>@_snapshot.Ship.DriveWearPercent%</b></div><div><small>Cargo</small><b>@_snapshot.Ship.CargoLoaded t</b></div><div><small>Credits</small><b>@Credits(_snapshot.Finances.Credits)</b></div></section>
+            <section class="telemetry-grid"><div><small>Fuel</small><b>@_snapshot.Ship.FuelPercent%</b></div><div><small>Wear</small><b>@_snapshot.Ship.DriveWearPercent%</b></div><div><small>@(_snapshot.Route.UsesCheckpoints ? "Pinch" : "Cargo")</small><b>@(_snapshot.Route.UsesCheckpoints ? _snapshot.Ship.PinchReserve : _snapshot.Ship.CargoLoaded)@(_snapshot.Route.UsesCheckpoints ? "/100" : " t")</b></div><div><small>Credits</small><b>@Credits(_snapshot.Finances.Credits)</b></div></section>
             <section><p>Contract clock</p><b>@_snapshot.Contract.HoursRemaining h remaining</b><small>@_snapshot.Contract.DeadlineLabel</small></section><section><p>Persistent exposure</p><b>@Credits(_snapshot.LienPrincipal) lien</b><small>Legal exposure @_snapshot.LegalExposure · commercial trust @_snapshot.Finances.CommercialTrust</small></section>
             <footer><span>@_snapshot.ContentPackVersion</span><span>Schema @_snapshot.SchemaVersion</span><span>Cmd @_snapshot.CommandSequence</span></footer>
         </aside>
@@ -102,6 +138,7 @@
     private string? _loadError;
     private string? _commandError;
     private bool _busy;
+    private CheckpointPresentation? _replayCheckpoint;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -115,7 +152,9 @@
     private Task Begin() => Run(() => Journey.BeginVoyageAsync(_playerKey!));
     private Task Advance() => Run(() => Journey.AdvanceVoyageAsync(_playerKey!));
     private Task Resolve(EncounterResponse response) => Run(() => Journey.ResolveCurrentEncounterAsync(_playerKey!, response));
-    private async Task Dock() { await Run(() => Journey.ArriveAsync(_playerKey!)); if (_snapshot?.Phase == JourneyPhase.Docked) Navigation.NavigateTo("/operations"); }
+    private Task AdvanceCheckpoint() => Run(() => Journey.ResolveCheckpointAsync(_playerKey!));
+    private Task ResolveCheckpoint(CheckpointResponse? response) => Run(() => Journey.ResolveCheckpointAsync(_playerKey!, response));
+    private async Task Dock() { await Run(() => Journey.ArriveAsync(_playerKey!)); if (_snapshot?.Phase is JourneyPhase.Docked or JourneyPhase.CustomsPending) Navigation.NavigateTo("/operations"); }
     private async Task Run(Func<ValueTask<CommandResult<JourneySnapshot>>> command) { if (_busy || _playerKey is null) return; _busy = true; _commandError = null; Apply(await command(), load: false); _busy = false; }
     private void Apply(CommandResult<JourneySnapshot> result, bool load) { if (result.IsSuccess) _snapshot = result.Value; else if (load) _loadError = result.Error?.Message; else _commandError = result.Error?.Message; }
     private string StepClass(int step) { if (_snapshot is null) return ""; int active = _snapshot.Phase switch { JourneyPhase.DepartureAuthorized => 1, JourneyPhase.InTransit => _snapshot.Encounter is null ? 2 : 4, JourneyPhase.EncounterPending => 3, JourneyPhase.Approach => 4, _ => 5 }; return step < active ? "complete" : step == active ? "active" : ""; }

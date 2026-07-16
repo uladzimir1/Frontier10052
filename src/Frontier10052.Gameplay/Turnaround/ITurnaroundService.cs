@@ -5,10 +5,12 @@ namespace Frontier10052.Gameplay.Turnaround;
 
 public interface ITurnaroundService
 {
+    ValueTask<CommandResult<TurnaroundSnapshot>> ResumeAsync(string playerKey, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<TurnaroundSnapshot>> ResumeMarsOperationsAsync(string playerKey, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<TurnaroundSnapshot>> ServiceLienAsync(string playerKey, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<TurnaroundSnapshot>> DeferLienAsync(string playerKey, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<TurnaroundSnapshot>> RefuelAsync(string playerKey, int percentagePoints, CancellationToken cancellationToken = default);
+    ValueTask<CommandResult<TurnaroundSnapshot>> ChargePinchAsync(string playerKey, int points, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<TurnaroundSnapshot>> RepairAsync(string playerKey, RepairService service, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<TurnaroundSnapshot>> RestCrewAsync(string playerKey, CrewRestService service, CancellationToken cancellationToken = default);
     ValueTask<CommandResult<TurnaroundSnapshot>> SelectContractAsync(string playerKey, ContractId contractId, CancellationToken cancellationToken = default);
@@ -46,10 +48,16 @@ public sealed record TurnaroundSnapshot(
     TurnaroundAction DepartureAction,
     bool DepartureAuthorized,
     string? AuthorizedDestination,
-    string LastOutcome);
+    string LastOutcome,
+    bool IsSiriusPreparation = false,
+    int FuelUnitCost = 85,
+    int PinchUnitCost = 0,
+    TurnaroundAction? ChargePinchAction = null,
+    TurnaroundInformationPresentation? Information = null);
 
 public sealed record TurnaroundAction(string Id, string Label, string Consequence, bool IsAvailable, string Explanation);
-public sealed record TurnaroundShipPresentation(string Name, string Hull, int CargoLoaded, int CargoCapacity, int CargoAvailable, int FuelPercent, int DriveWearPercent, int HullConditionPercent);
+public sealed record TurnaroundShipPresentation(string Name, string Hull, int CargoLoaded, int CargoCapacity, int CargoAvailable, int FuelPercent, int DriveWearPercent, int HullConditionPercent, int PinchReserve = 0);
+public sealed record TurnaroundInformationPresentation(string Id, string Title, string Disposition, int ConfidencePercent, string Provenance);
 public sealed record TurnaroundCrewMemoryPresentation(string Kind, string Summary, int LoyaltyDelta, string RecordedAt);
 public sealed record TurnaroundCrewPresentation(string Id, string Name, string Role, int Loyalty, int Fatigue, string Assignment, IReadOnlyList<TurnaroundCrewMemoryPresentation> Memories);
 public sealed record TurnaroundLienHistoryPresentation(string Disposition, long Amount, long PrincipalAfter, string Note, string RecordedAt);

@@ -58,10 +58,20 @@ public static class CommandErrorCodes
     public const string RestAlreadyResolved = "turnaround.rest-already-resolved";
     public const string InvalidFuelQuantity = "turnaround.invalid-fuel-quantity";
     public const string FuelTankCapacityExceeded = "turnaround.fuel-capacity-exceeded";
+    public const string InvalidPinchQuantity = "turnaround.invalid-pinch-quantity";
+    public const string PinchCapacityExceeded = "turnaround.pinch-capacity-exceeded";
+    public const string InsufficientPinchReserve = "journey.insufficient-pinch-reserve";
     public const string OfferExpired = "contract.offer-expired";
     public const string OfferAlreadyClosed = "contract.offer-already-closed";
     public const string OfferExpirationRisk = "contract.offer-expiration-risk";
     public const string ContractSelectionRequired = "contract.selection-required";
     public const string ServiceRequirementsNotMet = "turnaround.service-requirements-not-met";
     public const string RouteUnavailable = "route.unavailable";
+    public const string CheckpointUnavailable = "checkpoint.unavailable";
+    public const string CheckpointResponseUnavailable = "checkpoint.response-unavailable";
+    public const string InformationMissing = "information.missing";
+    public const string CustomsUnavailable = "sirius.customs-unavailable";
+    public const string CustomsAlreadyCleared = "sirius.customs-already-cleared";
+    public const string SettlementUnavailable = "sirius.settlement-unavailable";
+    public const string SettlementAlreadyComplete = "sirius.settlement-already-complete";
 }

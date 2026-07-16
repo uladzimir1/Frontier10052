@@ -66,6 +66,22 @@ public readonly record struct EncounterId
     public override string ToString() => Value;
 }
 
+public readonly record struct InformationId
+{
+    [JsonConstructor]
+    public InformationId(string value) => Value = Identifier.Require(value, nameof(InformationId));
+    public string Value { get; }
+    public override string ToString() => Value;
+}
+
+public readonly record struct RouteCheckpointId
+{
+    [JsonConstructor]
+    public RouteCheckpointId(string value) => Value = Identifier.Require(value, nameof(RouteCheckpointId));
+    public string Value { get; }
+    public override string ToString() => Value;
+}
+
 internal static class Identifier
 {
     public static string Require(string value, string typeName)

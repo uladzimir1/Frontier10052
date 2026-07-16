@@ -46,7 +46,8 @@ internal static class VerticalSliceGameFactory
             ContractStatus.Offered,
             contract.IssuerFactionId,
             contract.IsTurnaroundOffer,
-            StartTime);
+            StartTime,
+            Objective: GameSessionCoordinator.CreateObjective(contract));
 
         IReadOnlyList<StationMarketState> stationMarkets = pack.StationMarkets.Select(definition =>
             definition.StationId == pack.Ship.StationId
@@ -80,12 +81,20 @@ internal static class VerticalSliceGameFactory
             stationMarkets,
             new LienState(new Credits(72_000), null, []),
             new MaintenanceState(92, 83, false, []),
-            [new FactionStandingState(FactionIds.TerranContinuityAuthority, 0), new FactionStandingState(FactionIds.KuiperSyndicates, 0)],
+            [
+                new FactionStandingState(FactionIds.TerranContinuityAuthority, 0),
+                new FactionStandingState(FactionIds.KuiperSyndicates, 0),
+                new FactionStandingState(FactionIds.SiriusCorporateCompact, 0),
+                new FactionStandingState(FactionIds.SiriusLabor, 0),
+            ],
             0,
             null,
             [],
             [new StationVisitState(pack.Ship.StationId, StartTime, null)],
-            100);
+            100,
+            [],
+            [],
+            []);
     }
 
     public static DestinationMarketState CreateDestinationMarket(VerticalSliceContentPack pack, IReadOnlyList<MarketListingState> earthListings)

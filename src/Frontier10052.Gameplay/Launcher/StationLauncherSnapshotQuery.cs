@@ -33,7 +33,8 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
             snapshot.Ship.CargoCapacity,
             snapshot.Ship.FuelPercent,
             snapshot.Ship.DriveWearPercent,
-            $"Local journey · command {snapshot.CommandSequence}"),
+            $"Local journey · command {snapshot.CommandSequence}",
+            snapshot.Ship.PinchReserve),
         new DockSnapshot(
             snapshot.LocationName,
             snapshot.LocationDetail,
@@ -42,7 +43,8 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
                 nameof(Simulation.JourneyPhase.InTransit) or nameof(Simulation.JourneyPhase.EncounterPending) => $"{snapshot.Contract.Origin}–{snapshot.Contract.Destination} transfer orbit",
                 nameof(Simulation.JourneyPhase.Approach) => "Destination approach corridor",
                 nameof(Simulation.JourneyPhase.Docked) => "Station cargo berth",
-                nameof(Simulation.JourneyPhase.Turnaround) => "Mars turnaround berth M-14",
+                nameof(Simulation.JourneyPhase.CustomsPending) => "Sirius customs concourse",
+                nameof(Simulation.JourneyPhase.Turnaround) => "Station turnaround berth",
                 nameof(Simulation.JourneyPhase.Delivered) => "Destination settlement berth",
                 _ => "Exchange berth E-07",
             },
@@ -54,8 +56,9 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
                 nameof(Simulation.JourneyPhase.EncounterPending) => "Transit contact · response required",
                 nameof(Simulation.JourneyPhase.Approach) => "Destination docking corridor assigned",
                 nameof(Simulation.JourneyPhase.Docked) => "Destination cargo custody ready",
-                nameof(Simulation.JourneyPhase.Turnaround) => "Mars debt, service, crew, and contract turnaround",
-                nameof(Simulation.JourneyPhase.Delivered) => "Second contract settled · vertical slice complete",
+                nameof(Simulation.JourneyPhase.CustomsPending) => "Sirius customs clearance required",
+                nameof(Simulation.JourneyPhase.Turnaround) => "Station service, crew, and contract preparation",
+                nameof(Simulation.JourneyPhase.Delivered) => snapshot.LocationName == "Sirius Meridian Exchange" ? "Sirius settlement persistent · vertical slice complete" : "Contract settled",
                 _ => "Station services connected",
             }),
         snapshot.Crew.Select(member => new CrewActivitySnapshot(member.Name, member.Role, member.Assignment, member.Status)).ToArray(),
@@ -63,7 +66,9 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
             new LauncherNoticeSnapshot("Contract", snapshot.Contract.Title, snapshot.Contract.Accepted ? $"{snapshot.Contract.Destination} · {snapshot.Contract.Quantity} sealed tonnes" : "Awaiting commander acceptance"),
             new LauncherNoticeSnapshot("Lien", $"{snapshot.LienBalance:N0}-credit inherited balance", $"Repair condition: {snapshot.RepairCondition}"),
             new LauncherNoticeSnapshot("Consequences", $"Legal exposure {snapshot.LegalExposure}", snapshot.ImportantConsequences),
-            new LauncherNoticeSnapshot("Patch 0.3", "Mars turnaround and second voyage", "Debt, service, crew memories, faction standing, and both destination branches are online."),
+            new LauncherNoticeSnapshot("Metric drive", $"{snapshot.Ship.PinchReserve}/100 pinch reserve", $"Next: {snapshot.CurrentCheckpoint}"),
+            new LauncherNoticeSnapshot("Sirius standings", $"Compact {snapshot.SiriusCompactStanding:+#;-#;0} · labor {snapshot.SiriusLaborStanding:+#;-#;0}", "Information custody and labor consequences persist after settlement."),
+            new LauncherNoticeSnapshot("Patch 0.4", "First interstellar crossing", "Ceres and Pluto now converge on the Sirius intelligence run."),
         ],
         true,
         true,
@@ -73,7 +78,10 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
         snapshot.LienBalance,
         snapshot.RepairCondition,
         snapshot.LegalExposure,
-        snapshot.ImportantConsequences);
+        snapshot.ImportantConsequences,
+        snapshot.CurrentCheckpoint,
+        snapshot.SiriusCompactStanding,
+        snapshot.SiriusLaborStanding);
 
     private static LauncherSnapshot Showcase(string? recoverableError) => new(
         new CommanderSnapshot("Cmdr. Alex Mercer", "Showcase commander · no local save", "AM"),
@@ -84,7 +92,8 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
             72,
             84,
             17,
-            "No browser journey found"),
+            "No browser journey found",
+            0),
         new DockSnapshot(
             "Pluto Gateway",
             "Sol Heritage Zone",
@@ -104,10 +113,13 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
         false,
         false,
         recoverableError,
-        "vertical-slice-v2 · save schema 3 · ready for a new commander",
+        "vertical-slice-v3 · save schema 4 · ready for a new commander",
         "/operations",
         72_000,
         "83% drive condition · no service record",
         0,
-        "Start a commander to create persistent crew, faction, and journey history.");
+        "Start a commander to create persistent crew, faction, and journey history.",
+        "Docked",
+        0,
+        0);
 }

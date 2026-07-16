@@ -3521,3 +3521,64 @@ button.cinematic-action[data-open-trailer] {
     .travel-background { transform: none !important; }
     .encounter-signal i { animation: none !important; }
 }
+
+/* Schema-4 Sirius intelligence run */
+
+.sirius-preparation,
+.sirius-workspace { background: radial-gradient(circle at 82% 8%, rgba(87, 129, 148, .14), transparent 34%), rgba(2, 6, 9, .65); }
+.sirius-charge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.sirius-charge-grid .refuel-console { grid-template-columns: 1fr; margin: 24px 0; }
+.sirius-charge-grid .refuel-console > div { grid-template-columns: 1fr; align-items: start; }
+.information-cargo,
+.information-dossier,
+.settlement-ledger { margin: 28px 0; border: 1px solid rgba(185, 230, 255, .27); background: rgba(13, 35, 46, .32); }
+.information-cargo { display: grid; gap: 8px; padding: 22px; }
+.information-cargo small,
+.information-dossier small,
+.settlement-ledger small { color: var(--ice); text-transform: uppercase; letter-spacing: .14em; font-size: 8px; }
+.information-cargo b { font: 300 clamp(22px, 2.5vw, 34px) var(--display); }
+.information-cargo span,
+.information-cargo p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+.information-dossier,
+.settlement-ledger { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.information-dossier > div,
+.settlement-ledger article { display: grid; gap: 9px; min-height: 116px; padding: 22px; border-right: 1px solid var(--line); }
+.information-dossier > div:last-child,
+.settlement-ledger article:last-child { border-right: 0; }
+.information-dossier b,
+.settlement-ledger b { font: 400 18px var(--display); }
+.information-dossier span,
+.settlement-ledger span { color: var(--muted); font-size: 10px; line-height: 1.55; }
+.provenance-list { display: grid; gap: 10px; margin: 24px 0; padding: 0; list-style: none; }
+.provenance-list li { padding: 13px 0 13px 20px; border-left: 1px solid var(--ice); color: var(--muted); font-size: 10px; line-height: 1.6; }
+.checkpoint-cinematic { position: relative; display: grid; place-items: center; align-content: center; gap: 9px; min-height: 210px; margin: 34px 0; overflow: hidden; border: 1px solid var(--line); background: radial-gradient(circle at 50% 50%, rgba(185, 230, 255, .15), transparent 34%), linear-gradient(135deg, rgba(3, 8, 12, .8), rgba(18, 35, 45, .55)); }
+.checkpoint-cinematic::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 11%, rgba(185, 230, 255, .04) 11.1% 11.3%); animation: checkpoint-drift 18s linear infinite; }
+.checkpoint-cinematic i { width: 82px; height: 1px; background: var(--ice); box-shadow: 0 0 28px var(--ice); transform: rotate(-12deg); }
+.checkpoint-cinematic b { z-index: 1; font: 400 13px var(--display); letter-spacing: .16em; }
+.checkpoint-cinematic small { z-index: 1; color: var(--faint); text-transform: uppercase; letter-spacing: .11em; font-size: 7px; }
+@keyframes checkpoint-drift { to { transform: translateX(11%); } }
+.checkpoint-journal { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); }
+.checkpoint-journal summary { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: 8px; cursor: pointer; }
+.checkpoint-journal button { margin: 13px 9px 0 0; padding: 9px 12px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 8px; }
+.checkpoint-replay { position: relative; display: grid; gap: 8px; margin-top: 18px; padding: 22px; border-left: 1px solid var(--ice); background: rgba(13, 35, 46, .4); }
+.checkpoint-replay button { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border: 0; background: transparent; color: var(--ink); font-size: 20px; }
+.checkpoint-replay small { color: var(--ice); text-transform: uppercase; letter-spacing: .12em; font-size: 7px; }
+.checkpoint-replay b { font: 400 18px var(--display); }
+.checkpoint-replay span { color: var(--muted); line-height: 1.65; }
+
+@media (max-width: 760px) {
+    .sirius-charge-grid,
+    .information-dossier,
+    .settlement-ledger { grid-template-columns: 1fr; }
+    .information-dossier > div,
+    .settlement-ledger article { border-right: 0; border-bottom: 1px solid var(--line); }
+    .travel-rail ol:has(li:nth-child(5)) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .travel-rail ol:has(li:nth-child(5)) li:not(:last-child) i::after { width: calc(20vw - 25px); }
+    .travel-rail ol:has(li:nth-child(5)) li span { max-width: 62px; overflow-wrap: anywhere; }
+    .checkpoint-cinematic { min-height: 160px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .checkpoint-cinematic::before,
+    .orbit-visual > span b { animation: none !important; transition: none !important; }
+}

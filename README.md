@@ -10,7 +10,8 @@ AAA-aspirational hard-science-fiction trading, exploration, crew, and civilizati
 - Deterministic Earth-to-Mars first-contract onboarding with crew briefing, contract cargo, conflicting market reports, optional trading, engineer assignment, and departure authorization
 - Mars turnaround with an inherited lien, refueling, provenance-aware repairs, crew rest, and mutually exclusive Pluto/Ceres contracts
 - Deterministic route-specific crises and destination settlement with persistent crew memories, faction standing, legal exposure, debt, maintenance, and journey history
-- Browser-owned local journeys backed by schema-3, checksummed, atomic server-side JSON saves with deterministic schema-2 migration
+- First interstellar crossing from the actual Ceres or Pluto settlement, with metric-drive pinch reserve, provenance-bearing information cargo, five ordered route checkpoints, a corporate labor conflict, Sirius customs, and persistent settlement
+- Browser-owned local journeys backed by schema-4, checksummed, atomic server-side JSON saves with deterministic schema-1, schema-2, and schema-3 migration
 - Responsive editorial routes for the universe, factions, map, ships, colonies, crew, lore, roadmap, and community
 - .NET 10 Blazor Web App foundation
 
@@ -46,7 +47,7 @@ Content --------------------------> Domain
 Infrastructure -> Gameplay and Domain contracts
 ```
 
-The automated test projects cover typed domain values, deterministic pricing and state, content validation, station operations, persistence, corrupt-save recovery, and cross-boundary composition. Run them locally with:
+The automated test projects cover typed domain values, deterministic pricing and state, content validation, station operations, persistence, corrupt-save recovery, all 12 Sirius origin/message/mechanical combinations, migration, customs, deadline boundaries, settlement, and cross-boundary composition. Run them locally with:
 
 ```bash
 dotnet test Frontier10052.slnx
@@ -62,10 +63,11 @@ Run the full test suite in a clean container:
 ./scripts/container.sh
 ```
 
-Use Docker explicitly:
+The engine-name shorthand runs that same test target explicitly through either engine:
 
 ```bash
-./scripts/container.sh test docker
+./scripts/container.sh podman
+./scripts/container.sh docker
 ```
 
 Build and run the web application at `http://localhost:8080`:
@@ -74,4 +76,4 @@ Build and run the web application at `http://localhost:8080`:
 ./scripts/container.sh run
 ```
 
-Docker can run the same application target with `./scripts/container.sh run docker`. Set `FRONTIER10052_PORT` to change the host port or `CONTAINER_ENGINE` to override the default engine.
+Docker can run the same application target with `./scripts/container.sh run docker`; Podman remains the default. Set `FRONTIER10052_PORT` to change the host port or `CONTAINER_ENGINE` to override the default engine.

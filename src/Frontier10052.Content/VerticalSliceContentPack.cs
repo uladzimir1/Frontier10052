@@ -35,6 +35,16 @@ public sealed record CommodityDefinition(
     long EstimatedMarsProfitHigh,
     bool Purchasable);
 
+public enum ContractObjectiveDefinitionKind { Cargo, Information }
+public enum RouteCheckpointDefinitionKind { Undock, GravityBoundary, DelayedMessage, LatticeDrift, Approach }
+
+public sealed record InformationDefinition(
+    InformationId Id,
+    string TitleKey,
+    string SourceKey,
+    string ProvenanceKey,
+    int ConfidencePercent);
+
 public sealed record ContractDefinition(
     ContractId Id,
     string TitleKey,
@@ -49,7 +59,14 @@ public sealed record ContractDefinition(
     string ConsequenceKey,
     string IssuerFactionId = "",
     bool IsTurnaroundOffer = false,
-    int LegalExposureOnAccept = 0);
+    int LegalExposureOnAccept = 0,
+    ContractObjectiveDefinitionKind ObjectiveKind = ContractObjectiveDefinitionKind.Cargo,
+    InformationId? InformationId = null,
+    int AcceptanceWindowHours = 0,
+    IReadOnlyList<StationId>? AlternativeOriginStationIds = null)
+{
+    public IReadOnlyList<StationId> AllOriginStationIds => [OriginStationId, .. AlternativeOriginStationIds ?? []];
+}
 
 public sealed record MarketReportDefinition(
     string Id,
@@ -71,7 +88,16 @@ public sealed record RouteDefinition(
     int DriveWearPercent,
     int EncounterAtHour,
     IReadOnlyList<EncounterId> EncounterPool,
-    string ProfileKey);
+    string ProfileKey,
+    int PinchCost = 0,
+    IReadOnlyList<RouteCheckpointDefinition>? Checkpoints = null);
+
+public sealed record RouteCheckpointDefinition(
+    RouteCheckpointId Id,
+    RouteCheckpointDefinitionKind Kind,
+    int ScheduledHour,
+    string TitleKey,
+    string DetailKey);
 
 public sealed record EncounterOptionDefinition(string ResponseId, CrewId? RequiredCrewId);
 
@@ -84,6 +110,12 @@ public sealed record EncounterDefinition(
 
 public sealed record MarsPriceDefinition(CommodityId CommodityId, long RealizedMargin);
 public sealed record StationMarketDefinition(StationId StationId, IReadOnlyList<CommodityId> TradedCommodities);
+public sealed record StationServiceDefinition(
+    StationId StationId,
+    int FuelUnitCost,
+    int PinchUnitCost,
+    int CertifiedRepairCost,
+    int FieldRepairCost);
 
 public sealed record VerticalSliceContentPack(
     string Version,
@@ -91,15 +123,18 @@ public sealed record VerticalSliceContentPack(
     ShipDefinition Ship,
     IReadOnlyList<CrewDefinition> Crew,
     IReadOnlyList<CommodityDefinition> Commodities,
+    IReadOnlyList<InformationDefinition> Information,
     IReadOnlyList<ContractDefinition> Contracts,
     IReadOnlyList<MarketReportDefinition> Reports,
     IReadOnlyList<RouteDefinition> Routes,
     IReadOnlyList<EncounterDefinition> Encounters,
     IReadOnlyList<MarsPriceDefinition> MarsPrices,
     IReadOnlyList<StationMarketDefinition> StationMarkets,
+    IReadOnlyList<StationServiceDefinition> StationServices,
     IReadOnlyDictionary<string, string> Localization)
 {
-    public const string PackVersion = "vertical-slice-v2";
+    public const string PackVersion = "vertical-slice-v3";
+    public const string Schema3PackVersion = "vertical-slice-v2";
     public const string Schema2PackVersion = "vertical-slice-v1";
     public const string LegacyPackVersion = "vertical-slice-v0";
 
@@ -114,6 +149,7 @@ public sealed record VerticalSliceContentPack(
         StationId mars = new("mars-industrial-port");
         StationId ceres = new("ceres-freehold-anchorage");
         StationId pluto = new("pluto-gateway");
+        StationId sirius = new("sirius-meridian-exchange");
         ShipId wayfarer = new("wayfarer");
 
         CommodityDefinition[] commodities =
@@ -124,6 +160,12 @@ public sealed record VerticalSliceContentPack(
             new(new CommodityId("nutrient-substrate"), "commodity.nutrient.name", "commodity.nutrient.description", "legality.bio-certified", new Credits(240), new Tonnes(60), new Tonnes(50), 60, 160, true),
             new(new CommodityId("actuator-assemblies"), "commodity.actuator.name", "commodity.actuator.description", "legality.standard", new Credits(1_280), new Tonnes(26), new Tonnes(34), -180, 940, true),
             new(new CommodityId("heritage-data-substrates"), "commodity.heritage.name", "commodity.heritage.description", "legality.archive-license", new Credits(2_100), new Tonnes(8), new Tonnes(15), 220, 700, true),
+            new(new CommodityId("sirius-industrial-forecast"), "commodity.forecast.name", "commodity.forecast.description", "legality.information-custody", new Credits(0), new Tonnes(0), new Tonnes(1), 0, 0, false),
+        ];
+
+        InformationDefinition[] information =
+        [
+            new(new InformationId("scc-sirius-industrial-forecast"), "information.forecast.title", "information.forecast.source", "information.forecast.provenance", 78),
         ];
 
         ContractDefinition[] contracts =
@@ -140,6 +182,28 @@ public sealed record VerticalSliceContentPack(
                 new ContractId("kuiper-ceres-repair-freight"), "contract.ceres.title", "contract.ceres.issuer", mars, ceres,
                 new CommodityId("ceramic-drive-bearings"), new Tonnes(16), 52, new Credits(14_500), new Credits(5_000),
                 "contract.ceres.consequence", "kuiper-syndicates", true, 1),
+            new(
+                new ContractId("scc-sirius-industrial-forecast"), "contract.sirius.title", "contract.sirius.issuer", ceres, sirius,
+                new CommodityId("sirius-industrial-forecast"), new Tonnes(0), 216, new Credits(26_000), new Credits(10_000),
+                "contract.sirius.consequence", "sirius-corporate-compact", true, 0,
+                ContractObjectiveDefinitionKind.Information, new InformationId("scc-sirius-industrial-forecast"), 36, [pluto]),
+        ];
+
+        RouteCheckpointDefinition[] ceresSiriusCheckpoints =
+        [
+            new(new RouteCheckpointId("ceres-sirius-undock"), RouteCheckpointDefinitionKind.Undock, 2, "checkpoint.undock.title", "checkpoint.ceres-undock.detail"),
+            new(new RouteCheckpointId("ceres-sirius-gravity-boundary"), RouteCheckpointDefinitionKind.GravityBoundary, 12, "checkpoint.gravity.title", "checkpoint.ceres-gravity.detail"),
+            new(new RouteCheckpointId("ceres-sirius-labor-warning"), RouteCheckpointDefinitionKind.DelayedMessage, 58, "checkpoint.message.title", "checkpoint.message.detail"),
+            new(new RouteCheckpointId("ceres-sirius-lattice-drift"), RouteCheckpointDefinitionKind.LatticeDrift, 106, "checkpoint.lattice.title", "checkpoint.lattice.detail"),
+            new(new RouteCheckpointId("ceres-sirius-approach"), RouteCheckpointDefinitionKind.Approach, 164, "checkpoint.approach.title", "checkpoint.approach.detail"),
+        ];
+        RouteCheckpointDefinition[] plutoSiriusCheckpoints =
+        [
+            new(new RouteCheckpointId("pluto-sirius-undock"), RouteCheckpointDefinitionKind.Undock, 2, "checkpoint.undock.title", "checkpoint.pluto-undock.detail"),
+            new(new RouteCheckpointId("pluto-sirius-gravity-boundary"), RouteCheckpointDefinitionKind.GravityBoundary, 10, "checkpoint.gravity.title", "checkpoint.pluto-gravity.detail"),
+            new(new RouteCheckpointId("pluto-sirius-labor-warning"), RouteCheckpointDefinitionKind.DelayedMessage, 52, "checkpoint.message.title", "checkpoint.message.detail"),
+            new(new RouteCheckpointId("pluto-sirius-lattice-drift"), RouteCheckpointDefinitionKind.LatticeDrift, 94, "checkpoint.lattice.title", "checkpoint.lattice.detail"),
+            new(new RouteCheckpointId("pluto-sirius-approach"), RouteCheckpointDefinitionKind.Approach, 148, "checkpoint.approach.title", "checkpoint.approach.detail"),
         ];
 
         RouteDefinition[] routes =
@@ -150,6 +214,10 @@ public sealed record VerticalSliceContentPack(
                 [new EncounterId("ceres-debris-coolant-breach")], "route.mars-ceres.profile"),
             new(new RouteId("mars-pluto-migration-corridor"), "route.mars-pluto.name", mars, pluto, 86, 28, 7, 43,
                 [new EncounterId("pluto-migration-medical-emergency")], "route.mars-pluto.profile"),
+            new(new RouteId("ceres-sirius-intelligence-run"), "route.ceres-sirius.name", ceres, sirius, 164, 12, 9, 58,
+                [], "route.ceres-sirius.profile", 44, ceresSiriusCheckpoints),
+            new(new RouteId("pluto-sirius-intelligence-run"), "route.pluto-sirius.name", pluto, sirius, 148, 10, 8, 52,
+                [], "route.pluto-sirius.profile", 40, plutoSiriusCheckpoints),
         ];
 
         CrewId ilya = new("ilya-sato");
@@ -180,6 +248,8 @@ public sealed record VerticalSliceContentPack(
             ["station.ceres.facility"] = "Freehold repair ring · Independent customs",
             ["station.pluto.name"] = "Pluto Gateway",
             ["station.pluto.facility"] = "Outer migration terminus · Relief custody",
+            ["station.sirius.name"] = "Sirius Meridian Exchange",
+            ["station.sirius.facility"] = "Corporate meridian · Labor customs concourse",
             ["ship.wayfarer.name"] = "Wayfarer",
             ["ship.wayfarer.hull"] = "Tern-class modular freighter",
             ["crew.mara.name"] = "Mara Venn",
@@ -206,10 +276,13 @@ public sealed record VerticalSliceContentPack(
             ["commodity.actuator.description"] = "Industrial motion packages exposed to the disputed Mars shortage.",
             ["commodity.heritage.name"] = "Heritage data substrates",
             ["commodity.heritage.description"] = "Archive-grade media requiring a registered cultural export license.",
+            ["commodity.forecast.name"] = "Industrial forecast dossier",
+            ["commodity.forecast.description"] = "Massless information cargo with source, confidence, and custody provenance.",
             ["legality.standard"] = "Legal · standard manifest",
             ["legality.sealed-medical"] = "Legal · sealed medical chain of custody",
             ["legality.bio-certified"] = "Legal · regulated bio-certification",
             ["legality.archive-license"] = "Controlled · heritage export license required",
+            ["legality.information-custody"] = "Controlled · corporate information custody",
             ["contract.first.title"] = "Mars Clinic Membrane Transfer",
             ["contract.first.issuer"] = "Sol Mutual Relief Office",
             ["contract.first.consequence"] = "Late or broken seals trigger a 4,500-credit claim and restrict future medical work.",
@@ -219,6 +292,12 @@ public sealed record VerticalSliceContentPack(
             ["contract.ceres.title"] = "Ceres Drive-Rebuild Freight",
             ["contract.ceres.issuer"] = "Kuiper Belt intermediary",
             ["contract.ceres.consequence"] = "Essential repair freight routed through a gray intermediary; Noor can limit, but not erase, legal exposure.",
+            ["contract.sirius.title"] = "Sirius Industrial Forecast Run",
+            ["contract.sirius.issuer"] = "Sirius Corporate Compact",
+            ["contract.sirius.consequence"] = "A 10,000-credit claim follows late or compromised sealed delivery; disclosure transforms the case toward labor support.",
+            ["information.forecast.title"] = "Sirius industrial allocation forecast",
+            ["information.forecast.source"] = "SCC Industrial Coordination Office",
+            ["information.forecast.provenance"] = "Issuer-signed allocation model · delayed courier custody",
             ["report.shortage.headline"] = "Mars actuator shortage verified",
             ["report.shortage.detail"] = "Maintenance consortium purchase orders show an unresolved port-wide actuator deficit.",
             ["report.shortage.source"] = "Mars Industrial Maintenance Consortium",
@@ -232,6 +311,22 @@ public sealed record VerticalSliceContentPack(
             ["route.mars-ceres.profile"] = "Mara's close-system profile: 32 hours, 10% fuel, 3% drive wear.",
             ["route.mars-pluto.name"] = "Mars–Pluto migration corridor",
             ["route.mars-pluto.profile"] = "Mara's outer-system profile: 86 hours, 28% fuel, 7% drive wear.",
+            ["route.ceres-sirius.name"] = "Ceres–Sirius metric crossing",
+            ["route.ceres-sirius.profile"] = "164 hours · 12% local fuel · 44 pinch · 9% drive wear.",
+            ["route.pluto-sirius.name"] = "Pluto–Sirius metric crossing",
+            ["route.pluto-sirius.profile"] = "148 hours · 10% local fuel · 40 pinch · 8% drive wear.",
+            ["checkpoint.undock.title"] = "Cinematic undock",
+            ["checkpoint.ceres-undock.detail"] = "Wayfarer clears the Ceres repair ring and spends four fuel points.",
+            ["checkpoint.pluto-undock.detail"] = "Wayfarer clears Pluto Gateway and spends four fuel points.",
+            ["checkpoint.gravity.title"] = "Gravity boundary departure",
+            ["checkpoint.ceres-gravity.detail"] = "Commit eight remaining fuel points, 44 pinch, and nine drive wear.",
+            ["checkpoint.pluto-gravity.detail"] = "Commit six remaining fuel points, 40 pinch, and eight drive wear.",
+            ["checkpoint.message.title"] = "Delayed labor warning",
+            ["checkpoint.message.detail"] = "A courier warning alleges that the corporate forecast conceals a dangerous labor allocation conflict.",
+            ["checkpoint.lattice.title"] = "Pinch-lattice drift",
+            ["checkpoint.lattice.detail"] = "The metric lattice drifts outside the filed corridor; engineering or reserve pinch can recover it.",
+            ["checkpoint.approach.title"] = "Sirius approach",
+            ["checkpoint.approach.detail"] = "Sirius Meridian Exchange assigns a customs vector and holds settlement pending clearance.",
             ["encounter.inspection.title"] = "Continuity patrol inspection",
             ["encounter.inspection.detail"] = "A Terran Continuity cutter requests Wayfarer's manifest and custody seals.",
             ["encounter.inspection.source"] = "TCA patrol Sable Nine",
@@ -256,6 +351,7 @@ public sealed record VerticalSliceContentPack(
                 new StationDefinition(mars, "station.mars.name", "Sol", "station.mars.facility"),
                 new StationDefinition(ceres, "station.ceres.name", "Sol", "station.ceres.facility"),
                 new StationDefinition(pluto, "station.pluto.name", "Sol", "station.pluto.facility"),
+                new StationDefinition(sirius, "station.sirius.name", "Sirius", "station.sirius.facility"),
             ],
             new ShipDefinition(wayfarer, "ship.wayfarer.name", "ship.wayfarer.hull", earth, new Tonnes(72), 84, 17),
             [
@@ -265,6 +361,7 @@ public sealed record VerticalSliceContentPack(
                 new CrewDefinition(tomas, "crew.tomas.name", "crew.tomas.role", "crew.tomas.briefing", wayfarer, 66, 9, true),
             ],
             commodities,
+            information,
             contracts,
             [
                 new MarketReportDefinition("mars-actuator-shortage", "report.shortage.headline", "report.shortage.detail", "report.shortage.source", 29, 82, "report.legality", true),
@@ -284,6 +381,12 @@ public sealed record VerticalSliceContentPack(
                 new StationMarketDefinition(mars, commodities.Where(item => item.Purchasable).Select(item => item.Id).ToArray()),
                 new StationMarketDefinition(ceres, []),
                 new StationMarketDefinition(pluto, []),
+                new StationMarketDefinition(sirius, []),
+            ],
+            [
+                new StationServiceDefinition(mars, 85, 0, 5_400, 1_800),
+                new StationServiceDefinition(ceres, 95, 140, 6_200, 2_100),
+                new StationServiceDefinition(pluto, 110, 120, 6_200, 2_100),
             ],
             text);
     }

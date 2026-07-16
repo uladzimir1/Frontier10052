@@ -66,10 +66,10 @@
         <section class="dock-telemetry" aria-label="Docked ship status">
             <div><small>Location</small><b>@_snapshot.Dock.Station</b><span>@_snapshot.Dock.LocalTimeLabel</span></div>
             <div><small>Cargo</small><b>@_snapshot.Ship.CargoLoaded / @_snapshot.Ship.CargoCapacity t</b><span>@(_snapshot.HasPlayerSave ? "Authoritative manifest" : "Showcase manifest")</span></div>
-            <div><small>Fuel</small><b>@_snapshot.Ship.FuelPercent%</b><span>Coupling connected</span></div>
+            <div><small>Fuel / pinch</small><b>@_snapshot.Ship.FuelPercent% / @_snapshot.Ship.PinchReserve</b><span>@_snapshot.CurrentCheckpoint</span></div>
             <div><small>Drive wear</small><b>@_snapshot.Ship.DriveWearPercent%</b><span>@_snapshot.RepairCondition</span></div>
         </section>
-        <div class="launcher-consequence-bar"><span><small>Inherited lien</small><b>@_snapshot.LienBalance.ToString("N0") cr</b></span><span><small>Legal exposure</small><b>@_snapshot.LegalExposure</b></span><p>@_snapshot.ImportantConsequences</p></div>
+        <div class="launcher-consequence-bar"><span><small>Inherited lien</small><b>@_snapshot.LienBalance.ToString("N0") cr</b></span><span><small>Sirius standings</small><b>@_snapshot.SiriusCompactStanding.ToString("+#;-#;0") / @_snapshot.SiriusLaborStanding.ToString("+#;-#;0")</b></span><p>Legal @_snapshot.LegalExposure · @_snapshot.CurrentCheckpoint · @_snapshot.ImportantConsequences</p></div>
 
         @if (_activePanel is not null)
         {

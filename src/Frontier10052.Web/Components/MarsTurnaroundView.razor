@@ -2,6 +2,64 @@
 
 @if (_snapshot is not null)
 {
+    @if (_snapshot.IsSiriusPreparation)
+    {
+        <aside class="operations-rail turnaround-rail" aria-label="Sirius outbound preparation sections">
+            <p class="rail-kicker">First interstellar crossing</p><h1>@_snapshot.LocationName outbound</h1><span class="rail-sequence">Seed @_snapshot.Seed · command @_snapshot.CommandSequence</span>
+            <nav>
+                @foreach (var step in SiriusSteps)
+                {
+                    <button class="@(_active == step.Index ? "active" : null) @(SiriusComplete(step.Index) ? "complete" : null)" @onclick="() => _active = step.Index"><small>@step.Index.ToString("00")</small><span>@step.Label</span><i></i></button>
+                }
+            </nav>
+            <div class="rail-route"><small>Offer window</small><b>@Math.Max(0, _snapshot.OfferHoursRemaining) hours remain</b><i></i><b>Sirius Meridian Exchange</b><span>The actual Ceres or Pluto origin remains in the manifest.</span></div>
+        </aside>
+
+        <main class="operations-workspace turnaround-workspace sirius-preparation">
+            @if (_error is not null) { <div class="operations-error" role="alert"><b>Command not accepted</b><span>@_error</span><button @onclick="() => _error = null">Dismiss</button></div> }
+            @if (_snapshot.DepartureAuthorized)
+            {
+                <section class="undock-handoff"><p>Interstellar authority · schema 4 manifest locked</p><h2>Wayfarer is cleared from @_snapshot.LocationName for Sirius.</h2><span>The forecast, origin, crew, fuel, pinch reserve, repair provenance, lien, and standings are persisted before the cinematic begins.</span><div><b>@_snapshot.LocationName</b><i></i><b>Sirius Meridian Exchange</b></div><a href="/travel">Begin the Sirius intelligence run</a></section>
+            }
+            else if (_active == 1)
+            {
+                <section class="workspace-section"><div class="workspace-heading"><p>01 · Drive preparation</p><h2>Local fuel reaches the boundary. Pinch reserve carries the crossing.</h2><span>Fuel takes one hour per started ten points. Pinch takes one hour per started twenty. Both commands are atomic.</span></div>
+                    <div class="ship-debt-strip"><div><small>Fuel</small><b>@_snapshot.Ship.FuelPercent%</b><span>@_snapshot.FuelUnitCost credits per point</span></div><div><small>Pinch reserve</small><b>@_snapshot.Ship.PinchReserve / 100</b><span>@_snapshot.PinchUnitCost credits per point</span></div><div><small>Drive wear</small><b>@_snapshot.Ship.DriveWearPercent%</b><span>@_snapshot.Maintenance.DriveConditionPercent% condition</span></div><div><small>Available</small><b>@Credits(_snapshot.AvailableCredits)</b><span>@Math.Max(0, _snapshot.OfferHoursRemaining) offer hours remain</span></div></div>
+                    <div class="sirius-charge-grid">
+                        <div class="refuel-console"><label>Fuel points<input type="number" min="1" max="@(100 - _snapshot.Ship.FuelPercent)" @bind="_fuelPoints" /></label><div><button disabled="@(!CanRefuel || _busy)" @onclick="Refuel">Add fuel</button><p>@RefuelExplanation</p></div></div>
+                        <div class="refuel-console"><label>Pinch points<input type="number" min="1" max="@(100 - _snapshot.Ship.PinchReserve)" @bind="_pinchPoints" /></label><div><button disabled="@(!CanChargePinch || _busy)" @onclick="ChargePinch">Charge pinch</button><p>@PinchExplanation</p></div></div>
+                    </div>
+                    <div class="turnaround-choice-grid three"><ActionCard Action="_snapshot.CertifiedRepairAction" OnChoose="() => Run(() => Turnaround.RepairAsync(PlayerKey, RepairService.Certified))" /><ActionCard Action="_snapshot.FieldRepairAction" OnChoose="() => Run(() => Turnaround.RepairAsync(PlayerKey, RepairService.IlyaFieldService))" /><ActionCard Action="_snapshot.DeferRepairAction" OnChoose="() => Run(() => Turnaround.RepairAsync(PlayerKey, RepairService.Deferred))" /></div>
+                </section>
+            }
+            else if (_active == 2)
+            {
+                <section class="workspace-section"><div class="workspace-heading"><p>02 · Crew watchbill</p><h2>All four crew must be available at authorization.</h2><span>Rest remains optional, but its fatigue reduction carries into the message, lattice drift, customs, and settlement.</span></div>
+                    <div class="turnaround-choice-grid"><ActionCard Action="_snapshot.FullLayoverAction" OnChoose="() => Run(() => Turnaround.RestCrewAsync(PlayerKey, CrewRestService.FullLayover))" /><ActionCard Action="_snapshot.WatchesAction" OnChoose="() => Run(() => Turnaround.RestCrewAsync(PlayerKey, CrewRestService.TurnaroundWatches))" /></div>
+                    <div class="crew-briefing-list">@foreach (TurnaroundCrewPresentation member in _snapshot.Crew) { <article><small>@member.Role · @member.Assignment</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl>@if (member.Memories.Count > 0) { <p>@member.Memories[0].Summary</p> }</article> }</div>
+                </section>
+            }
+            else if (_active == 3)
+            {
+                <section class="workspace-section"><div class="workspace-heading"><p>03 · Information contract</p><h2>One forecast. Three possible dispositions.</h2><span>Preserve, corroborate, or disclose only after departure. The 216-hour delivery clock began when this offer arrived.</span></div>
+                    <div class="offer-grid">@foreach (TurnaroundOfferPresentation offer in _snapshot.Offers) { <article class="offer-card @(offer.Status != "Offered" ? "closed" : null)"><small>@offer.Issuer · @offer.Status</small><h3>@offer.Title</h3><p>@offer.Consequence</p><div class="offer-route"><b>@_snapshot.LocationName</b><i></i><b>@offer.Destination</b></div><dl><div><dt>Objective</dt><dd>Issuer-signed industrial forecast</dd></div><div><dt>Route</dt><dd>@offer.RouteHours h · checkpoint-driven</dd></div><div><dt>Deadline</dt><dd>@offer.DeadlineHours h · @offer.DeadlineLabel</dd></div><div><dt>Reward / claim</dt><dd>+@Credits(offer.Reward) / −@Credits(offer.FailurePenalty)</dd></div><div><dt>Mechanical crisis</dt><dd>@offer.Encounter</dd></div><div><dt>Labor conflict</dt><dd>@offer.CrewReaction</dd></div></dl><button aria-label="Accept @offer.Title" disabled="@(!offer.SelectAction.IsAvailable || _busy)" @onclick="() => Run(() => Turnaround.SelectContractAsync(PlayerKey, new ContractId(offer.Id)))">@offer.SelectAction.Label</button><p class="control-explanation">@offer.SelectAction.Explanation</p></article> }</div>
+                    @if (_snapshot.Information is not null) { <aside class="information-cargo"><small>Information cargo</small><b>@_snapshot.Information.Title</b><span>@_snapshot.Information.Disposition · @_snapshot.Information.ConfidencePercent% confidence</span><p>@_snapshot.Information.Provenance</p></aside> }
+                </section>
+            }
+            else
+            {
+                <section class="workspace-section"><div class="workspace-heading"><p>04 · Departure review</p><h2>The first interstellar manifest leaves nothing implied.</h2><span>Accepted information, explicit repair, four crew, local fuel, base pinch, and drive margin are all required.</span></div>
+                    <div class="readiness-list">@foreach (TurnaroundRequirement item in _snapshot.DepartureRequirements) { <div class="@(item.Complete ? "complete" : null)"><i></i><span><b>@item.Label</b><small>@item.Detail</small></span></div> }</div>
+                    <div class="faction-settlement">@foreach (TurnaroundFactionPresentation faction in _snapshot.Factions.Where(item => item.Id is "sirius-corporate-compact" or "sirius-labor")) { <span>@faction.Name <b>@faction.Standing.ToString("+#;-#;0")</b></span> }<span>Legal exposure <b>@_snapshot.LegalExposure</b></span></div>
+                    <div class="authorize-action"><button disabled="@(!_snapshot.DepartureAction.IsAvailable || _busy)" @onclick="() => Run(() => Turnaround.AuthorizeDepartureAsync(PlayerKey))">@_snapshot.DepartureAction.Label</button><p><b>@_snapshot.DepartureAction.Consequence</b><br />@_snapshot.DepartureAction.Explanation</p></div>
+                </section>
+            }
+        </main>
+
+        <aside class="manifest-panel turnaround-manifest" aria-label="Persistent Sirius departure manifest"><div class="manifest-commander"><span>@_snapshot.Initials</span><p><b>@_snapshot.Callsign</b><small>@_snapshot.LocationName · @_snapshot.GameTimeLabel</small></p></div><section><p>Metric reserve</p><b>@_snapshot.Ship.PinchReserve / 100 pinch</b><small>@_snapshot.Ship.FuelPercent% local fuel · @_snapshot.Ship.DriveWearPercent% drive wear</small></section><section class="manifest-finance"><div><small>Available</small><b>@Credits(_snapshot.AvailableCredits)</b></div><div><small>Inherited lien</small><b>@Credits(_snapshot.Lien.Principal)</b></div><div><small>Legal exposure</small><b>@_snapshot.LegalExposure</b></div></section><section><p>Last consequence</p><small>@_snapshot.LastOutcome</small></section><footer><span>@_snapshot.ContentPackVersion</span><span>Schema @_snapshot.SchemaVersion</span><span>Command @_snapshot.CommandSequence</span></footer></aside>
+    }
+    else
+    {
     <aside class="operations-rail turnaround-rail" aria-label="Mars turnaround sections">
         <p class="rail-kicker">Second contract</p><h1>Mars turnaround</h1><span class="rail-sequence">Seed @_snapshot.Seed · command @_snapshot.CommandSequence</span>
         <nav>
@@ -58,6 +116,7 @@
     </main>
 
     <aside class="manifest-panel turnaround-manifest" aria-label="Persistent turnaround manifest and finances"><div class="manifest-commander"><span>@_snapshot.Initials</span><p><b>@_snapshot.Callsign</b><small>@_snapshot.LocationName · @_snapshot.GameTimeLabel</small></p></div><section><p>Wayfarer manifest</p><div class="hold-meter"><span style="width:@CargoPercent%"></span></div><b>@_snapshot.Ship.CargoLoaded / @_snapshot.Ship.CargoCapacity t</b><small>@_snapshot.Ship.CargoAvailable tonnes free</small></section><section class="manifest-finance"><div><small>Available</small><b>@Credits(_snapshot.AvailableCredits)</b></div><div><small>Inherited lien</small><b>@Credits(_snapshot.Lien.Principal)</b></div><div><small>Legal exposure</small><b>@_snapshot.LegalExposure</b></div></section><section><p>Last consequence</p><small>@_snapshot.LastOutcome</small></section><footer><span>@_snapshot.ContentPackVersion</span><span>Schema @_snapshot.SchemaVersion</span><span>Command @_snapshot.CommandSequence</span></footer></aside>
+    }
 }
 
 @code {
@@ -66,16 +125,23 @@
     private TurnaroundSnapshot? _snapshot;
     private int _active = 1;
     private int _fuelPoints = 10;
+    private int _pinchPoints = 20;
     private bool _busy;
     private string? _error;
     private static readonly (int Index, string Label)[] Steps = [(1, "Lien"), (2, "Ship"), (3, "Crew"), (4, "Contracts"), (5, "Departure")];
-    protected override void OnInitialized() { _snapshot = InitialSnapshot; if (_snapshot.DepartureAuthorized) _active = 5; }
+    private static readonly (int Index, string Label)[] SiriusSteps = [(1, "Drive"), (2, "Crew"), (3, "Forecast"), (4, "Departure")];
+    protected override void OnInitialized() { _snapshot = InitialSnapshot; if (_snapshot.DepartureAuthorized) _active = _snapshot.IsSiriusPreparation ? 4 : 5; }
     private decimal CargoPercent => _snapshot is null ? 0 : _snapshot.Ship.CargoLoaded * 100m / _snapshot.Ship.CargoCapacity;
     private bool Complete(int step) => step switch { 1 => _snapshot?.Lien.Disposition is not null, 2 => _snapshot?.Maintenance.RepairDecision != "Pending", 3 => _snapshot?.DepartureRequirements.Single(item => item.Label == "Crew rest").Complete == true, 4 => _snapshot?.Offers.Any(item => item.Status == "Accepted") == true, 5 => _snapshot?.DepartureAuthorized == true, _ => false };
+    private bool SiriusComplete(int step) => step switch { 1 => _snapshot?.Maintenance.RepairDecision != "Pending" && _snapshot?.DepartureRequirements.FirstOrDefault(item => item.Label == "Pinch reserve")?.Complete == true, 2 => _snapshot?.DepartureRequirements.FirstOrDefault(item => item.Label == "Four crew available")?.Complete == true, 3 => _snapshot?.Offers.Any(item => item.Status == "Accepted") == true, 4 => _snapshot?.DepartureAuthorized == true, _ => false };
     private bool CanRefuel => RefuelBlocker is null;
-    private string RefuelExplanation => RefuelBlocker ?? $"Costs {Credits(_fuelPoints * 85L)} and takes {(_fuelPoints + 9) / 10} hour(s).";
-    private string? RefuelBlocker => _snapshot is null ? "Turnaround state unavailable." : _fuelPoints <= 0 ? "Choose at least one fuel point." : _snapshot.Ship.FuelPercent + _fuelPoints > 100 ? $"Only {100 - _snapshot.Ship.FuelPercent} fuel points fit." : _fuelPoints * 85L > _snapshot.AvailableCredits ? "Available credits are insufficient." : _snapshot.Offers.All(item => item.Status == "Offered") && ((_fuelPoints + 9) / 10) > _snapshot.OfferHoursRemaining ? "This refuel would expire both offers before selection." : null;
+    private string RefuelExplanation => RefuelBlocker ?? $"Costs {Credits(_fuelPoints * (long)(_snapshot?.FuelUnitCost ?? 85))} and takes {(_fuelPoints + 9) / 10} hour(s).";
+    private string? RefuelBlocker => _snapshot is null ? "Turnaround state unavailable." : _fuelPoints <= 0 ? "Choose at least one fuel point." : _snapshot.Ship.FuelPercent + _fuelPoints > 100 ? $"Only {100 - _snapshot.Ship.FuelPercent} fuel points fit." : _fuelPoints * (long)_snapshot.FuelUnitCost > _snapshot.AvailableCredits ? "Available credits are insufficient." : _snapshot.Offers.All(item => item.Status == "Offered") && ((_fuelPoints + 9) / 10) > _snapshot.OfferHoursRemaining ? "This refuel would expire the offer before selection." : null;
     private Task Refuel() => CanRefuel ? Run(() => Turnaround.RefuelAsync(PlayerKey, _fuelPoints)) : Task.CompletedTask;
+    private bool CanChargePinch => PinchBlocker is null;
+    private string PinchExplanation => PinchBlocker ?? $"Costs {Credits(_pinchPoints * (long)(_snapshot?.PinchUnitCost ?? 0))} and takes {(_pinchPoints + 19) / 20} hour(s).";
+    private string? PinchBlocker => _snapshot is null ? "Preparation state unavailable." : !_snapshot.IsSiriusPreparation ? "Pinch charging is unavailable for this route." : _pinchPoints <= 0 ? "Choose at least one pinch point." : _snapshot.Ship.PinchReserve + _pinchPoints > 100 ? $"Only {100 - _snapshot.Ship.PinchReserve} pinch points fit." : _pinchPoints * (long)_snapshot.PinchUnitCost > _snapshot.AvailableCredits ? "Available credits are insufficient." : _snapshot.Offers.All(item => item.Status == "Offered") && ((_pinchPoints + 19) / 20) > _snapshot.OfferHoursRemaining ? "This charge would expire the offer before acceptance." : null;
+    private Task ChargePinch() => CanChargePinch ? Run(() => Turnaround.ChargePinchAsync(PlayerKey, _pinchPoints)) : Task.CompletedTask;
     private async Task Run(Func<ValueTask<CommandResult<TurnaroundSnapshot>>> command) { if (_busy) return; _busy = true; _error = null; CommandResult<TurnaroundSnapshot> result = await command(); _busy = false; if (result.IsSuccess) _snapshot = result.Value; else _error = result.Error?.Message; }
     private static string Credits(long value) => $"{value:N0} cr";
 }

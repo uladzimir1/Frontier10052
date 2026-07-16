@@ -4,6 +4,11 @@ using Frontier10052.Domain;
 namespace Frontier10052.Simulation;
 
 public enum ContractStatus { Offered, Accepted, Completed, Failed, Rejected, Transformed }
+public enum ContractObjectiveKind { Cargo, Information }
+public enum InformationDisposition { Secured, Sealed, Corroborated, Disclosed, Delivered }
+public enum RouteCheckpointKind { Undock, GravityBoundary, DelayedMessage, LatticeDrift, Approach }
+public enum CheckpointResolutionStatus { Pending, Resolved }
+public enum StationOperationsMode { MarsTurnaround, SiriusPreparation }
 public enum ReportDecision { ActuatorShortage, ConvoyArrival, CoolantAlternative, SkipSpeculativeTrade }
 public enum EngineerAssignment { AnalyzeCourierManifest, InspectDrive }
 
@@ -17,6 +22,8 @@ public enum JourneyPhase
     Docked = 5,
     Turnaround = 6,
     Delivered = 7,
+    CheckpointPending = 8,
+    CustomsPending = 9,
 }
 
 public enum EncounterStatus { Pending, Resolved }
@@ -43,10 +50,21 @@ public enum EncounterResponse
     DebrisEvasiveBurn = DebrisMaraEvasion,
 }
 
+public enum CheckpointResponse
+{
+    PreserveSeal,
+    CorroborateWarning,
+    LeakWarning,
+    IlyaRecalibration,
+    MaraPinchCorrection,
+}
+
 public static class FactionIds
 {
     public const string TerranContinuityAuthority = "tca";
     public const string KuiperSyndicates = "kuiper-syndicates";
+    public const string SiriusCorporateCompact = "sirius-corporate-compact";
+    public const string SiriusLabor = "sirius-labor";
 }
 
 public sealed record CommanderState(string Callsign);
@@ -57,7 +75,8 @@ public sealed record ShipState(
     Tonnes CargoCapacity,
     int FuelPercent,
     int DriveWearPercent,
-    int HullWearPercent = 8);
+    int HullWearPercent = 8,
+    int PinchReserve = 0);
 
 public sealed record CrewMemoryState(GameTime RecordedAt, string Kind, string Summary, int LoyaltyDelta);
 
@@ -72,6 +91,12 @@ public sealed record CrewMemberState(
 public sealed record MarketListingState(CommodityId CommodityId, Credits AskPrice, Tonnes Stock, bool Purchasable);
 public sealed record StationMarketState(StationId StationId, IReadOnlyList<MarketListingState> Listings);
 public sealed record MarketReportState(string Id, GameTime ObservedAt, int ConfidencePercent, bool Verified, bool EngineerAnalyzed);
+
+public sealed record ContractObjectiveState(
+    ContractObjectiveKind Kind,
+    CommodityId? CommodityId,
+    Tonnes Quantity,
+    InformationId? InformationId);
 
 public sealed record ContractState(
     ContractId Id,
@@ -88,7 +113,26 @@ public sealed record ContractState(
     GameTime? OfferedAt = null,
     GameTime? AcceptedAt = null,
     GameTime? SettledAt = null,
-    string Outcome = "");
+    string Outcome = "",
+    ContractObjectiveState? Objective = null,
+    GameTime? AcceptanceExpiresAt = null,
+    string Transformation = "");
+
+public sealed record InformationProvenanceState(string Source, GameTime ObservedAt, int ConfidencePercent, string Note);
+
+public sealed record InformationItemState(
+    InformationId Id,
+    string Title,
+    InformationDisposition Disposition,
+    int ConfidencePercent,
+    IReadOnlyList<InformationProvenanceState> Provenance);
+
+public sealed record ContractTransformationState(
+    ContractId ContractId,
+    GameTime TransformedAt,
+    string FromCase,
+    string ToCase,
+    string Reason);
 
 public sealed record CargoLineState(CommodityId CommodityId, Tonnes Quantity, bool IsContractCargo, bool Sealed);
 
@@ -103,7 +147,18 @@ public sealed record DepartureManifestState(
     ReportDecision? ReportDecision,
     ContractId? ContractId = null,
     RouteId? RouteId = null,
-    int ManifestConfidencePercent = 100);
+    int ManifestConfidencePercent = 100,
+    int PinchReserve = 0,
+    InformationId? InformationId = null);
+
+public sealed record RouteCheckpointState(
+    RouteCheckpointId Id,
+    RouteCheckpointKind Kind,
+    int ScheduledHour,
+    CheckpointResolutionStatus Status,
+    GameTime? ResolvedAt,
+    CheckpointResponse? Response,
+    string Outcome);
 
 public sealed record RouteTravelState(
     RouteId Id,
@@ -117,7 +172,16 @@ public sealed record RouteTravelState(
     GameTime EstimatedArrival,
     int ElapsedBaselineHours,
     int DelayHours,
-    string EncounterPoolId = "");
+    string EncounterPoolId = "",
+    int PinchCost = 0,
+    IReadOnlyList<RouteCheckpointState>? Checkpoints = null)
+{
+    [JsonIgnore]
+    public IReadOnlyList<RouteCheckpointState> AllCheckpoints => Checkpoints ?? [];
+
+    [JsonIgnore]
+    public bool UsesCheckpoints => Checkpoints is { Count: > 0 };
+}
 
 public sealed record EncounterState(
     EncounterId Id,
@@ -154,10 +218,20 @@ public sealed record JourneyHistoryState(
     DepartureManifestState DepartureManifest,
     EncounterState? Encounter,
     DestinationManifestState? DestinationManifest,
-    string Outcome);
+    string Outcome,
+    InformationSettlementState? InformationSettlement = null);
 
 public sealed record LienPaymentState(GameTime RecordedAt, LienDisposition Disposition, Credits Amount, Credits PrincipalAfter, string Note);
 public sealed record LienState(Credits Principal, LienDisposition? TurnaroundDisposition, IReadOnlyList<LienPaymentState> PaymentHistory);
+
+public sealed record DebtLedgerEntryState(
+    GameTime RecordedAt,
+    string Kind,
+    Credits Claim,
+    Credits PaidFromCash,
+    Credits Capitalized,
+    Credits PrincipalAfter,
+    string Note);
 
 public sealed record RepairRecordState(
     GameTime CompletedAt,
@@ -185,7 +259,26 @@ public sealed record TurnaroundState(
     CrewRestService? CrewRestService,
     ContractId? SelectedContractId,
     bool DepartureAuthorized,
-    string LastOutcome);
+    string LastOutcome,
+    StationOperationsMode Mode = StationOperationsMode.MarsTurnaround);
+
+public sealed record SiriusCustomsState(
+    StationId OriginStationId,
+    bool Cleared,
+    GameTime? ClearedAt,
+    int DelayHours,
+    string Outcome);
+
+public sealed record InformationSettlementState(
+    ContractId ContractId,
+    InformationId InformationId,
+    InformationDisposition Disposition,
+    bool OnTime,
+    GameTime SettledAt,
+    Credits Payment,
+    Credits Claim,
+    Credits CapitalizedClaim,
+    string Outcome);
 
 public sealed record JourneyState(
     JourneyPhase Phase,
@@ -231,9 +324,14 @@ public sealed record GameState(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TurnaroundState? Turnaround = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<JourneyHistoryState>? JourneyHistory = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<StationVisitState>? StationVisits = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int ManifestConfidencePercent = 100)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int ManifestConfidencePercent = 100,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<InformationItemState>? InformationCargo = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ContractTransformationState>? ContractTransformations = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<DebtLedgerEntryState>? DebtLedger = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SiriusCustomsState? SiriusCustoms = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InformationSettlementState? InformationSettlement = null)
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
     public Tonnes CargoLoaded => new(Cargo.Sum(item => item.Quantity.Value));
     public Tonnes CargoAvailable => Ship.CargoCapacity - CargoLoaded;
 
@@ -251,4 +349,13 @@ public sealed record GameState(
 
     [JsonIgnore]
     public IReadOnlyList<StationVisitState> AllStationVisits => StationVisits ?? [];
+
+    [JsonIgnore]
+    public IReadOnlyList<InformationItemState> AllInformationCargo => InformationCargo ?? [];
+
+    [JsonIgnore]
+    public IReadOnlyList<ContractTransformationState> AllContractTransformations => ContractTransformations ?? [];
+
+    [JsonIgnore]
+    public IReadOnlyList<DebtLedgerEntryState> AllDebtLedger => DebtLedger ?? [];
 }

@@ -31,7 +31,14 @@
     }
     else if (_snapshot?.IsDestinationOperations == true && _journey is not null && _playerKey is not null)
     {
-        <StationArrivalView InitialSnapshot="_journey" PlayerKey="@_playerKey" OnFirstContractSettled="ReloadStationAsync" />
+        @if (_journey.VoyageNumber == 3)
+        {
+            <SiriusSettlementView InitialSnapshot="_journey" PlayerKey="@_playerKey" />
+        }
+        else
+        {
+            <StationArrivalView InitialSnapshot="_journey" PlayerKey="@_playerKey" OnFirstContractSettled="ReloadStationAsync" />
+        }
     }
     else if (_snapshot is null && _loadError is null)
     {
@@ -287,7 +294,7 @@
             _turnaround = null;
             if (_snapshot?.IsTurnaround == true)
             {
-                CommandResult<TurnaroundSnapshot> turnaroundResult = await Turnaround.ResumeMarsOperationsAsync(_playerKey);
+                CommandResult<TurnaroundSnapshot> turnaroundResult = await Turnaround.ResumeAsync(_playerKey);
                 if (turnaroundResult.IsSuccess) _turnaround = turnaroundResult.Value;
                 else _loadError = turnaroundResult.Error?.Message;
             }
