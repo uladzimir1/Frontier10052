@@ -1,4 +1,5 @@
 using Frontier10052.Domain;
+using Frontier10052.Gameplay.Launcher;
 using Frontier10052.Gameplay.Operations;
 using Frontier10052.Gameplay.Persistence;
 using Frontier10052.Infrastructure;
@@ -43,6 +44,20 @@ public sealed class StationOperationsIntegrationTests
         GameSaveEnvelope firstSave = (await _store.LoadAsync("player-a")).Value!;
         GameSaveEnvelope secondSave = (await _store.LoadAsync("player-b")).Value!;
         Assert.AreEqual(GameStateCanonicalizer.Serialize(firstSave.State), GameStateCanonicalizer.Serialize(secondSave.State));
+    }
+
+    [TestMethod]
+    public async Task LauncherCrewUsesStablePortraitIdentifiersForSaveAndShowcase()
+    {
+        await StartAsync("crew-ids", "Portrait Test");
+        StationLauncherSnapshotQuery query = new(_service);
+
+        LauncherSnapshot saved = await query.GetAsync("crew-ids");
+        LauncherSnapshot showcase = await query.GetAsync(null);
+        string[] expected = ["mara-venn", "ilya-sato", "noor-okafor", "tomas-vale"];
+
+        CollectionAssert.AreEqual(expected, saved.Crew.Select(member => member.Id).ToArray());
+        CollectionAssert.AreEqual(expected, showcase.Crew.Select(member => member.Id).ToArray());
     }
 
     [TestMethod]

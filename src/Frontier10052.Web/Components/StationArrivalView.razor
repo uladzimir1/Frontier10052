@@ -28,7 +28,7 @@ else
                 <div class="crew-consequence-grid">
                     @foreach (JourneyCrewPresentation member in _snapshot.Crew ?? [])
                     {
-                        <article><small>@member.Role · fatigue @member.Fatigue</small><b>@member.Name · loyalty @member.Loyalty</b><span>@member.LastMemory</span></article>
+                        <article class="crew-dossier-card"><CrewPortrait CrewId="@member.Id" Variant="arrival" /><div class="crew-dossier-copy"><small>@member.Role · fatigue @member.Fatigue</small><b>@member.Name · loyalty @member.Loyalty</b><span>@member.LastMemory</span></div></article>
                     }
                 </div>
                 <button class="mars-next" @onclick="() => _active = HasOpenMarket ? 2 : 3">@(HasOpenMarket ? "Review destination bids" : "Continue to cargo delivery")</button>

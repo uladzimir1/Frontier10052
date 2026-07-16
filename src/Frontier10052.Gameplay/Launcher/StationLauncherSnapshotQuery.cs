@@ -61,7 +61,7 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
                 nameof(Simulation.JourneyPhase.Delivered) => snapshot.SiriusAftermathPhase != "Unavailable" ? $"Meridian aftermath · {snapshot.SiriusAftermathPhase}" : snapshot.LocationName == "Sirius Meridian Exchange" ? "Sirius settlement persistent" : "Contract settled",
                 _ => "Station services connected",
             }),
-        snapshot.Crew.Select(member => new CrewActivitySnapshot(member.Name, member.Role, member.Assignment, member.Status)).ToArray(),
+        snapshot.Crew.Select(member => new CrewActivitySnapshot(member.Id, member.Name, member.Role, member.Assignment, member.Status)).ToArray(),
         [
             new LauncherNoticeSnapshot("Contract", snapshot.Contract.Title, snapshot.Contract.Accepted ? $"{snapshot.Contract.Destination} · {snapshot.Contract.Quantity} sealed tonnes" : "Awaiting commander acceptance"),
             new LauncherNoticeSnapshot("Lien", $"{snapshot.LienBalance:N0}-credit inherited balance", $"Repair condition: {snapshot.RepairCondition}"),
@@ -102,10 +102,10 @@ public sealed class StationLauncherSnapshotQuery(IStationOperationsService opera
             "03:17 station time",
             "Showcase state · start a new commander"),
         [
-            new CrewActivitySnapshot("Mara Venn", "Pilot", "Reviewing departure vectors", "Ready"),
-            new CrewActivitySnapshot("Ilya Sato", "Engineer", "Supervising fuel coupling", "On task"),
-            new CrewActivitySnapshot("Noor Okafor", "Security", "Checking cargo seals", "Clear"),
-            new CrewActivitySnapshot("Tomas Vale", "Medic", "Restocking the infirmary", "Available"),
+            new CrewActivitySnapshot("mara-venn", "Mara Venn", "Pilot", "Reviewing departure vectors", "Ready"),
+            new CrewActivitySnapshot("ilya-sato", "Ilya Sato", "Engineer", "Supervising fuel coupling", "On task"),
+            new CrewActivitySnapshot("noor-okafor", "Noor Okafor", "Security", "Checking cargo seals", "Clear"),
+            new CrewActivitySnapshot("tomas-vale", "Tomas Vale", "Medic", "Restocking the infirmary", "Available"),
         ],
         [
             new LauncherNoticeSnapshot("News", "Gate Authority revises outbound manifests", "New inspection windows take effect after the next courier arrival."),

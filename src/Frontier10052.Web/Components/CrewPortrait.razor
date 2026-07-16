@@ -1,0 +1,21 @@
+@if (Source is not null)
+{
+    <div class="crew-portrait crew-portrait-@Variant" aria-hidden="true">
+        <img src="@Source" alt="" loading="@(Eager ? "eager" : "lazy")" decoding="async" />
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string CrewId { get; set; } = string.Empty;
+    [Parameter] public string Variant { get; set; } = "card";
+    [Parameter] public bool Eager { get; set; }
+
+    private string? Source => CrewId switch
+    {
+        "mara-venn" => "assets/crew/mara-venn.webp",
+        "ilya-sato" => "assets/crew/ilya-sato.webp",
+        "noor-okafor" => "assets/crew/noor-okafor.webp",
+        "tomas-vale" => "assets/crew/tomas-vale.webp",
+        _ => null,
+    };
+}

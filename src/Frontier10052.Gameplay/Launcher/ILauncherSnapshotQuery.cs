@@ -50,6 +50,7 @@ public sealed record DockSnapshot(
     string TrafficState);
 
 public sealed record CrewActivitySnapshot(
+    string Id,
     string Name,
     string Role,
     string Activity,

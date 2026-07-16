@@ -50,6 +50,16 @@
         <main class="travel-workspace">
             @if (_commandError is not null) { <div class="operations-error" role="alert"><b>Command not accepted</b><span>@_commandError</span><button @onclick="() => _commandError = null">Dismiss</button></div> }
 
+            <section class="journey-crew-strip" aria-label="Wayfarer crew watch">
+                @foreach (JourneyCrewPresentation member in _snapshot.Crew ?? [])
+                {
+                    <article>
+                        <CrewPortrait CrewId="@member.Id" Variant="travel" Eager="true" />
+                        <p><small>@member.Role · fatigue @member.Fatigue</small><b>@member.Name</b><span>Loyalty @member.Loyalty</span></p>
+                    </article>
+                }
+            </section>
+
             @if (_snapshot.Phase == JourneyPhase.DepartureAuthorized)
             {
                 <section class="travel-stage route-confirmation">

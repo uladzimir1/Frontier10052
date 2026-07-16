@@ -126,7 +126,10 @@
         <div class="crew-ribbon" aria-label="Crew activity">
             @foreach (var member in _snapshot.Crew)
             {
-                <div><small>@member.Role · @member.Status</small><b>@member.Name</b><span>@member.Activity</span></div>
+                <div>
+                    <CrewPortrait CrewId="@member.Id" Variant="ribbon" Eager="true" />
+                    <p><small>@member.Role · @member.Status</small><b>@member.Name</b><span>@member.Activity</span></p>
+                </div>
             }
         </div>
     }

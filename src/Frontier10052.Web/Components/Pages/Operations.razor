@@ -107,9 +107,12 @@
                             <div class="crew-briefing-list">
                                 @foreach (CrewPresentation member in _snapshot.Crew)
                                 {
-                                    <article>
-                                        <small>@member.Role · @member.Status</small><h3>@member.Name</h3><p>@member.Briefing</p>
-                                        <dl><div><dt>Loyalty</dt><dd>@member.Loyalty%</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue%</dd></div></dl>
+                                    <article class="crew-dossier-card">
+                                        <CrewPortrait CrewId="@member.Id" Variant="briefing" Eager="true" />
+                                        <div class="crew-dossier-copy">
+                                            <small>@member.Role · @member.Status</small><h3>@member.Name</h3><p>@member.Briefing</p>
+                                            <dl><div><dt>Loyalty</dt><dd>@member.Loyalty%</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue%</dd></div></dl>
+                                        </div>
                                     </article>
                                 }
                             </div>

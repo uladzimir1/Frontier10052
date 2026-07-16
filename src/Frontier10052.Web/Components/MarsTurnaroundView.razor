@@ -36,7 +36,7 @@
             {
                 <section class="workspace-section"><div class="workspace-heading"><p>02 · Crew watchbill</p><h2>All four crew must be available at authorization.</h2><span>Rest remains optional, but its fatigue reduction carries into the message, lattice drift, customs, and settlement.</span></div>
                     <div class="turnaround-choice-grid"><ActionCard Action="_snapshot.FullLayoverAction" OnChoose="() => Run(() => Turnaround.RestCrewAsync(PlayerKey, CrewRestService.FullLayover))" /><ActionCard Action="_snapshot.WatchesAction" OnChoose="() => Run(() => Turnaround.RestCrewAsync(PlayerKey, CrewRestService.TurnaroundWatches))" /></div>
-                    <div class="crew-briefing-list">@foreach (TurnaroundCrewPresentation member in _snapshot.Crew) { <article><small>@member.Role · @member.Assignment</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl>@if (member.Memories.Count > 0) { <p>@member.Memories[0].Summary</p> }</article> }</div>
+                    <div class="crew-briefing-list">@foreach (TurnaroundCrewPresentation member in _snapshot.Crew) { <article class="crew-dossier-card"><CrewPortrait CrewId="@member.Id" Variant="briefing" /><div class="crew-dossier-copy"><small>@member.Role · @member.Assignment</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl>@if (member.Memories.Count > 0) { <p>@member.Memories[0].Summary</p> }</div></article> }</div>
                 </section>
             }
             else if (_active == 3)
@@ -96,7 +96,7 @@
         {
             <section class="workspace-section"><div class="workspace-heading"><p>03 · Crew layover</p><h2>Rest is a route resource, not flavor text.</h2><span>Both plans change every crew member’s persistent fatigue. Ilya’s field repair cost, if chosen, is already visible here.</span></div>
                 <div class="turnaround-choice-grid"><ActionCard Action="_snapshot.FullLayoverAction" OnChoose="() => Run(() => Turnaround.RestCrewAsync(PlayerKey, CrewRestService.FullLayover))" /><ActionCard Action="_snapshot.WatchesAction" OnChoose="() => Run(() => Turnaround.RestCrewAsync(PlayerKey, CrewRestService.TurnaroundWatches))" /></div>
-                <div class="crew-briefing-list">@foreach (TurnaroundCrewPresentation member in _snapshot.Crew) { <article><small>@member.Role · @member.Assignment</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl>@if (member.Memories.Count > 0) { <p>@member.Memories[0].Summary</p> }</article> }</div>
+                <div class="crew-briefing-list">@foreach (TurnaroundCrewPresentation member in _snapshot.Crew) { <article class="crew-dossier-card"><CrewPortrait CrewId="@member.Id" Variant="briefing" /><div class="crew-dossier-copy"><small>@member.Role · @member.Assignment</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl>@if (member.Memories.Count > 0) { <p>@member.Memories[0].Summary</p> }</div></article> }</div>
             </section>
         }
         else if (_active == 4)

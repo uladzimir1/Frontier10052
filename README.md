@@ -7,6 +7,7 @@ AAA-aspirational hard-science-fiction trading, exploration, crew, and civilizati
 - Cinematic solar-to-Andromeda landing journey based on the selected Visual 1 direction
 - Living-station scroll story and interactive one-minute concept trailer
 - Docked-ship launcher with commander, crew, cargo, news, patch, and settings states
+- Archival crew dossiers with generated documentary portraits, stable crew identity, and reduced-motion-aware scan and depth effects across launcher, operations, travel, arrivals, and Sirius decisions
 - Deterministic Earth-to-Mars first-contract onboarding with crew briefing, contract cargo, conflicting market reports, optional trading, engineer assignment, and departure authorization
 - Mars turnaround with an inherited lien, refueling, provenance-aware repairs, crew rest, and mutually exclusive Pluto/Ceres contracts
 - Deterministic route-specific crises and destination settlement with persistent crew memories, faction standing, legal exposure, debt, maintenance, and journey history

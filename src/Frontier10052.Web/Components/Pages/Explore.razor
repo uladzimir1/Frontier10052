@@ -43,11 +43,17 @@
         <div class="signature-rows">
             @foreach (var row in _content.Rows)
             {
-                <article>
+                <article class="@(row.CrewId is null ? null : "crew-editorial-row")">
                     <small>@row.Label</small>
-                    <h3>@row.Title</h3>
-                    <p>@row.Detail</p>
-                    <span>@row.Meta</span>
+                    @if (row.CrewId is not null)
+                    {
+                        <CrewPortrait CrewId="@row.CrewId" Variant="editorial" Eager="true" />
+                    }
+                    <div class="signature-row-copy">
+                        <h3>@row.Title</h3>
+                        <p>@row.Detail</p>
+                        <span>@row.Meta</span>
+                    </div>
                 </article>
             }
         </div>
@@ -145,9 +151,10 @@
                 "Crew remember dangerous improvisations.",
                 "Current watch", "assets/cinematic/living-frontier.webp",
                 [
-                    new("Pilot", "Mara Venn", "Reviews departure geometry and knows when a theoretically possible route is not worth the crew's lives.", "Steady · Ready"),
-                    new("Engineer", "Ilya Sato", "Keeps an old metric drive functional and remembers every repair the captain postponed.", "Exacting · On task"),
-                    new("Security / Medic", "Noor Okafor · Tomas Vale", "Protect cargo, people, evidence, and the possibility of surviving the consequences without firing first.", "Clear · Available"),
+                    new("Pilot", "Mara Venn", "Reviews departure geometry and knows when a theoretically possible route is not worth the crew's lives.", "Steady · Ready", "mara-venn"),
+                    new("Engineer", "Ilya Sato", "Keeps an old metric drive functional and remembers every repair the captain postponed.", "Exacting · On task", "ilya-sato"),
+                    new("Security", "Noor Okafor", "Protects cargo, people, evidence, and the chain of custody when every institution wants a different truth.", "Principled · Clear", "noor-okafor"),
+                    new("Medic", "Tomas Vale", "Keeps the crew alive while insisting that survival does not erase obligations to workers and strangers.", "Humane · Available", "tomas-vale"),
                 ],
                 "/ships", "Return to the ship", "See the systems the crew depends on", "/lore", "Read their history", "Culture and memory shape every decision"),
             ["lore"] = new(
@@ -213,5 +220,5 @@
         public string Statement => Title;
     }
 
-    private sealed record EditorialRow(string Label, string Title, string Detail, string Meta);
+    private sealed record EditorialRow(string Label, string Title, string Detail, string Meta, string? CrewId = null);
 }

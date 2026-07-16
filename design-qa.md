@@ -195,3 +195,30 @@ final result: passed
 - Release build completed with 0 warnings and 0 errors. All 93 tests passed locally and inside clean Podman and Docker test images. Production images launched successfully through both engines and returned HTTP 200 for `/` and `/operations`.
 
 final result: passed
+
+## Archival crew dossier portrait pass
+
+### Direction and evidence
+
+- Selected source direction: `doc/design/crew-dossiers-option-1-source.png`.
+- Same-input desktop comparison: `doc/design/crew-dossiers-comparison.png`, pairing the selected source with the live 1536 × 1000 Sirius hearing.
+- Live hearing evidence: `doc/design/crew-dossiers-hearing-1536x1000.png` and `doc/design/crew-dossiers-hearing-390x844.png`.
+- Supporting live surfaces: `doc/design/crew-portraits-launcher-1536x1000.png`, `doc/design/crew-portraits-editorial-1536x1000.png`, `doc/design/crew-portraits-editorial-390x844.png`, `doc/design/crew-portraits-operations-1536x1000.png`, `doc/design/crew-portraits-operations-390x844.png`, `doc/design/crew-portraits-travel-1536x1000.png`, and `doc/design/crew-portraits-arrival-1536x1000.png`.
+- Four production WebP portraits represent Mara Venn, Ilya Sato, Noor Okafor, and Tomas Vale in the selected restrained documentary-workwear style. Stable crew identifiers select assets; unknown identifiers render no broken image and leave the existing text identity intact.
+
+### Design review findings and fixes
+
+- [P2 fixed] Crew identity previously depended entirely on compact text lists, making the launcher, preparation, voyage, arrival, and aftermath surfaces feel disconnected. One reusable portrait treatment now follows the authoritative crew identity through every major playable context.
+- [P2 fixed] A generic portrait grid would have weakened the established editorial and diegetic layouts. Variant-specific crops preserve the launcher ribbon, editorial field index, operations briefing, travel watch strip, arrival consequence list, and hearing dossier composition.
+- [P2 fixed] Full-page capture could defer below-fold editorial image painting. The editorial portraits now load eagerly, while focused viewport evidence confirms every natural-size image is rendered.
+- No unresolved P0, P1, or P2 findings remain. The implementation closely matches the selected source's three-column hearing composition, documentary portrait scale, restrained amber metadata, square rules, near-black station plate, and dense consequence controls.
+
+### Runtime, accessibility, and responsive verification
+
+- Desktop 1536 × 1000 and mobile 390 × 844 rendered the correct crew portraits without stretching or cropping faces out of frame. The mobile document and body widths remained exactly 390 pixels with no horizontal overflow.
+- Keyboard Tab focus landed on the first available hearing action with the intended 2-pixel ice-blue outline. Choosing Support Noor advanced to allocation at command 34, and reload restored that persisted phase.
+- The compiled reduced-motion rules disable portrait scanning, transforms, and transitions; the launcher reduce-motion preference applies the same portrait safeguards. The registered media query and all four loaded image dimensions were confirmed in the live browser.
+- Fresh browser verification reported 0 console errors and no HTTP failures; the crew route and all four portrait assets returned 200 or cache-valid 304 responses.
+- Release formatting and build verification completed with 0 warnings and 0 errors. All 94 tests passed locally and inside clean Podman and Docker test images. Runtime images from both engines returned HTTP 200 for `/`, `/crew`, and a generated crew portrait asset.
+
+final result: passed

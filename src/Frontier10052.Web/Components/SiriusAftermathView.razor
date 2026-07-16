@@ -39,7 +39,7 @@
             <div class="aftermath-crew-grid">
                 @foreach (AftermathCrewPresentation member in Snapshot.Crew.Where(item => item.Id is "noor-okafor" or "tomas-vale" or "ilya-sato"))
                 {
-                    <article><small>@member.Role · @(member.Available ? "Available" : "Unavailable")</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl><p>@member.LastMemory</p></article>
+                    <article class="crew-dossier-card"><CrewPortrait CrewId="@member.Id" Variant="hearing" Eager="true" /><div class="crew-dossier-copy"><small>@member.Role · @(member.Available ? "Available" : "Unavailable")</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl><p>@member.LastMemory</p></div></article>
                 }
             </div>
             @if (Snapshot.Phase == SiriusAftermathPhase.CrewConflict)
