@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Core entities, value objects, rules, results, and boundary contracts for Frontier 10052.</Description>
+  </PropertyGroup>
+</Project>

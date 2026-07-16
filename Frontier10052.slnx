@@ -1,3 +1,11 @@
 <Solution>
+  <Project Path="src/Frontier10052.Content/Frontier10052.Content.csproj" />
+  <Project Path="src/Frontier10052.Domain/Frontier10052.Domain.csproj" />
+  <Project Path="src/Frontier10052.Gameplay/Frontier10052.Gameplay.csproj" />
+  <Project Path="src/Frontier10052.Infrastructure/Frontier10052.Infrastructure.csproj" />
+  <Project Path="src/Frontier10052.Simulation/Frontier10052.Simulation.csproj" />
   <Project Path="src/Frontier10052.Web/Frontier10052.Web.csproj" />
+  <Project Path="tests/Frontier10052.Domain.Tests/Frontier10052.Domain.Tests.csproj" />
+  <Project Path="tests/Frontier10052.IntegrationTests/Frontier10052.IntegrationTests.csproj" />
+  <Project Path="tests/Frontier10052.Simulation.Tests/Frontier10052.Simulation.Tests.csproj" />
 </Solution>

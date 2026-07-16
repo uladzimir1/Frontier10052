@@ -1,0 +1,217 @@
+@page "/universe"
+@page "/factions"
+@page "/star-map"
+@page "/ships"
+@page "/colonies"
+@page "/crew"
+@page "/lore"
+@page "/roadmap"
+@page "/community"
+@inject NavigationManager Navigation
+
+<PageTitle>@_content.PageTitle — Frontier 10052</PageTitle>
+<HeadContent>
+    <meta name="description" content="@_content.Description" />
+</HeadContent>
+
+<article class="editorial-page @($"editorial-{_content.Slug}")">
+    <header class="editorial-hero">
+        <img src="@_content.Image" alt="" fetchpriority="high" />
+        <div class="editorial-shade" aria-hidden="true"></div>
+        <div class="editorial-title">
+            <p>@_content.Index · @_content.Eyebrow</p>
+            <h1>@_content.Title</h1>
+            <span>@_content.Lede</span>
+        </div>
+        <a class="editorial-scroll" href="#feature">Read the transmission</a>
+    </header>
+
+    <section class="editorial-intro" id="feature">
+        <p class="section-index">@_content.Eyebrow</p>
+        <h2>@_content.Statement</h2>
+        <div>
+            <p>@_content.Description</p>
+            <blockquote>@_content.Quote</blockquote>
+        </div>
+    </section>
+
+    <section class="signature-module" aria-labelledby="module-title">
+        <div class="signature-heading">
+            <p class="section-index">Field index</p>
+            <h2 id="module-title">@_content.ModuleTitle</h2>
+        </div>
+        <div class="signature-rows">
+            @foreach (var row in _content.Rows)
+            {
+                <article>
+                    <small>@row.Label</small>
+                    <h3>@row.Title</h3>
+                    <p>@row.Detail</p>
+                    <span>@row.Meta</span>
+                </article>
+            }
+        </div>
+    </section>
+
+    <nav class="editorial-next" aria-label="Continue exploring">
+        <p>Continue through the frontier</p>
+        <a href="@_content.NextPath"><span>@_content.NextLabel</span><small>@_content.NextDetail</small></a>
+        <a href="@_content.SecondaryPath"><span>@_content.SecondaryLabel</span><small>@_content.SecondaryDetail</small></a>
+    </nav>
+</article>
+
+@code {
+    private EditorialContent _content = Content["universe"];
+
+    protected override void OnParametersSet()
+    {
+        var slug = new Uri(Navigation.Uri).AbsolutePath.Trim('/');
+        _content = Content.GetValueOrDefault(slug, Content["universe"]);
+    }
+
+    private static readonly IReadOnlyDictionary<string, EditorialContent> Content =
+        new Dictionary<string, EditorialContent>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["universe"] = new(
+                "universe", "02", "The universe", "The Universe",
+                "Distance is the first law.",
+                "Real stars anchor a civilization where every market report, warning, warrant, and personal message must travel aboard a ship.",
+                "A route is never only distance. It is time, fuel, law, confidence, wear, and the age of everything you think you know.",
+                "The map records only what the player has reason to know.",
+                "Regions of human space", "assets/cinematic/galaxy-reveal.webp",
+                [
+                    new("Origin", "Sol Heritage Zone", "Earth preserves memory. Mars builds. Pluto consolidates freight, migrants, and unofficial outward routes.", "Opening region"),
+                    new("Frontier", "The Silent Margins", "Sparse signals, disputed routes, old wrecks, and knowledge whose absence may be deliberate.", "Uncertain space"),
+                    new("Crossing", "Andromeda", "A regulated democratic alternative that subsidizes arrival but makes ordinary return almost impossible.", "Promised frontier"),
+                ],
+                "/star-map", "Open the star map", "See how knowledge changes with scale", "/factions", "Meet the factions", "Power travels aboard ships"),
+            ["factions"] = new(
+                "factions", "03", "Institutions", "Factions",
+                "No empire controls the whole map.",
+                "Authorities, companies, freeholds, syndicates, faiths, and migration institutions provide real benefits while imposing real costs.",
+                "Standing is jurisdictional. A hero in one system may be a criminal in another, and the news may not have arrived yet.",
+                "No faction is uniformly good or evil.",
+                "Powers in tension", "assets/cinematic/living-frontier.webp",
+                [
+                    new("Continuity", "Terran Continuity Authority", "Guardian of heritage, ceremony, controlled legitimacy, and the political memory of Earth.", "Regulated order"),
+                    new("Contract", "Sirius Corporate Compact", "Efficient, innovative, contract-driven, and willing to convert dependency into leverage.", "Commercial power"),
+                    new("Departure", "Andromedan Federation", "A functioning democratic society with hospitality, boundaries, and a carefully managed migration promise.", "Conditional refuge"),
+                ],
+                "/ships", "See the ships", "Every institution depends on hulls and crews", "/lore", "Open the archive", "Claims, sources, and disputed histories"),
+            ["star-map"] = new(
+                "star-map", "04", "Navigation", "Star Map",
+                "Knowledge has a position and an age.",
+                "The navigational map separates facts, estimates, rumors, and unknowns while exposing travel time, hazards, patrols, repair access, and information decay.",
+                "Zoom from the relationship between two galaxies to a single berth without pretending that every route is equally known.",
+                "News propagation is transported, never universal.",
+                "Known route preview", "assets/cinematic/galaxy-reveal.webp",
+                [
+                    new("Verified", "Sol → Proxima corridor", "Recent courier telemetry, maintained departure geometry, and several corroborating traffic sources.", "Confidence · High"),
+                    new("Aging", "Pluto → Sirius report", "Commercial reports are eleven travel-days old and competitor traffic is unconfirmed.", "Confidence · Medium"),
+                    new("Disputed", "Silent Margin trace", "One damaged courier record and a salvage claim whose source benefits from urgency.", "Confidence · Low"),
+                ],
+                "/universe", "Read the universe", "Understand the regions behind the routes", "/colonies", "Visit the colonies", "Destinations that change through supply"),
+            ["ships"] = new(
+                "ships", "05", "The vessel", "Ships",
+                "The ship remembers everything.",
+                "An aging merchant vessel is home, tool, workplace, collateral, and character. Damage remains visible and repairs leave a history.",
+                "Cargo space competes with fuel, spare parts, passenger support, medicine, sensors, heat capacity, and concealed compartments.",
+                "Upgrades create specialization, not immunity.",
+                "Wayfarer systems", "assets/cinematic/living-frontier.webp",
+                [
+                    new("Mass", "Cargo and consumables", "Seventy-two tonnes of configurable hold space shared by contracts, spares, fuel cells, and emergency stores.", "Manifest constrained"),
+                    new("Reliability", "Metric-drive lattice", "Old, repairable, sensitive to heat, and familiar enough that the engineer knows its dangerous sounds.", "Wear · 17%"),
+                    new("Home", "Crew spaces", "Four bunks, a compact infirmary, a galley table, and the rituals that turn machinery into a place to return to.", "Four crew aboard"),
+                ],
+                "/crew", "Meet the crew", "The people who keep the ship moving", "/play", "Enter the launcher", "See the Wayfarer at berth"),
+            ["colonies"] = new(
+                "colonies", "06", "Settlement", "Colonies",
+                "A delivery can become a generation.",
+                "Settlements grow through machinery, people, protection, medicine, policy, and the reliability of routes that may be weeks apart.",
+                "The player does not place decorative buildings. They influence whether a living community can keep promises through scarcity and delay.",
+                "Every meaningful location has an economic and cultural identity.",
+                "Settlement lifecycle", "assets/cinematic/solar-pullback.webp",
+                [
+                    new("Arrival", "Survival infrastructure", "Water, power, pressure, medicine, and repair capacity establish whether settlement is possible.", "Dependency · Critical"),
+                    new("Growth", "Local institutions", "Trade, law, work, language, and faction relationships become more important than imported hardware.", "Dependency · Social"),
+                    new("History", "Persistent consequence", "A saved settlement remembers shortages, rescues, broken contracts, migration, and who arrived in time.", "Dependency · Player"),
+                ],
+                "/factions", "Understand the powers", "Every colony negotiates authority", "/community", "Join the community", "Follow development transmissions"),
+            ["crew"] = new(
+                "crew", "07", "People aboard", "Crew",
+                "They are not interchangeable bonuses.",
+                "Crew carry beliefs, fatigue, loyalties, injuries, memories, relationships, ambitions, and boundaries onto every route.",
+                "An order can be obeyed, questioned, delayed, sabotaged, or refused for reasons the player can understand.",
+                "Crew remember dangerous improvisations.",
+                "Current watch", "assets/cinematic/living-frontier.webp",
+                [
+                    new("Pilot", "Mara Venn", "Reviews departure geometry and knows when a theoretically possible route is not worth the crew's lives.", "Steady · Ready"),
+                    new("Engineer", "Ilya Sato", "Keeps an old metric drive functional and remembers every repair the captain postponed.", "Exacting · On task"),
+                    new("Security / Medic", "Noor Okafor · Tomas Vale", "Protect cargo, people, evidence, and the possibility of surviving the consequences without firing first.", "Clear · Available"),
+                ],
+                "/ships", "Return to the ship", "See the systems the crew depends on", "/lore", "Read their history", "Culture and memory shape every decision"),
+            ["lore"] = new(
+                "lore", "08", "Archive", "Lore",
+                "The archive records claims, not omniscience.",
+                "History reaches the player through manifests, invoices, delayed messages, recordings, legal evidence, scars, and the interests of whoever preserved it.",
+                "Some mysteries remain disputed across saves. The codex shows why the player believes something and what could still prove it wrong.",
+                "Trust is a playable resource.",
+                "Provenance ledger", "assets/cinematic/galaxy-reveal.webp",
+                [
+                    new("Canon", "Builder Gates", "Humanity can operate the ancient network but cannot construct or fully explain it.", "Source · Technical consensus"),
+                    new("Institutional claim", "The Andromeda promise", "Migration is subsidized inward; ordinary legal return is not.", "Source · Published policy"),
+                    new("Unresolved", "Silent Margin courier", "A damaged record suggests a route that no current authority acknowledges.", "Source · Single witness"),
+                ],
+                "/universe", "Return to the universe", "Place the claims in their regions", "/roadmap", "Follow production", "See how the world becomes playable"),
+            ["roadmap"] = new(
+                "roadmap", "09", "Development", "Roadmap",
+                "Build one unforgettable journey first.",
+                "Production protects delayed information, the persistent ship, human crew, consequential factions, and costly travel before expanding the number of destinations.",
+                "A dense, deterministic first playable comes before real-time flight, broad content scale, or multiplayer promises.",
+                "Build validated vertical slices, not 500 shallow stars.",
+                "Production sequence", "assets/cinematic/solar-pullback.webp",
+                [
+                    new("Foundation", "Headless trade journey", "Validated content, deterministic time, markets, cargo, travel, encounters, saves, and replay diagnostics.", "Current phase"),
+                    new("Vertical slice", "Sol to nearby space", "One consequential journey combining trade, information, crew, maintenance, law, and presentation.", "Next gate"),
+                    new("Expansion", "A route toward Andromeda", "More systems arrive only after quality, save durability, performance, and content throughput are proven.", "Long-term path"),
+                ],
+                "/community", "Follow development", "News and community transmissions", "/play", "Open the launcher", "Experience the current interface slice"),
+            ["community"] = new(
+                "community", "10", "Transmissions", "Community",
+                "Stories travel farther when they are carried together.",
+                "Development news, route stories, discoveries, accessibility feedback, screenshots, and measured community experiments belong here.",
+                "Shared systems remain optional and bounded until the single-player game proves its depth, safety, and operating cost.",
+                "Single-player remains independently valid.",
+                "Open channels", "assets/cinematic/living-frontier.webp",
+                [
+                    new("Development", "Foundation systems online", "The documented project boundaries, automated tests, cinematic web shell, and local container workflow are operational.", "Latest transmission"),
+                    new("Feedback", "Vertical-slice field reports", "Future playtests will measure comprehension, route decisions, provenance, and fun without combat.", "Channel · Planned"),
+                    new("Shared space", "Multiplayer roadmap", "Social presence and asynchronous discoveries come before synchronized crews or authoritative regions.", "Status · Future"),
+                ],
+                "/roadmap", "Read the roadmap", "Understand the order of work", "/play", "Enter the launcher", "See the current playable shell"),
+        };
+
+    private sealed record EditorialContent(
+        string Slug,
+        string Index,
+        string Eyebrow,
+        string PageTitle,
+        string Title,
+        string Lede,
+        string Description,
+        string Quote,
+        string ModuleTitle,
+        string Image,
+        IReadOnlyList<EditorialRow> Rows,
+        string NextPath,
+        string NextLabel,
+        string NextDetail,
+        string SecondaryPath,
+        string SecondaryLabel,
+        string SecondaryDetail)
+    {
+        public string Statement => Title;
+    }
+
+    private sealed record EditorialRow(string Label, string Title, string Detail, string Meta);
+}

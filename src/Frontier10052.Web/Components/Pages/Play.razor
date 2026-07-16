@@ -1,61 +1,238 @@
 @page "/play"
-@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject ILauncherSnapshotQuery LauncherQuery
+@inject IStationOperationsService Operations
+@inject IJSRuntime JavaScript
+@inject NavigationManager Navigation
 
-<PageTitle>Launch Frontier 10052</PageTitle>
+<PageTitle>Command Interface — Frontier 10052</PageTitle>
 
-<section class="launcher">
-    <div class="launcher-space" aria-hidden="true">
-        <div class="launcher-planet"></div>
-        <div class="hangar-frame frame-left"></div>
-        <div class="hangar-frame frame-right"></div>
-        <div class="launcher-ship"><span class="engine engine-one"></span><span class="engine engine-two"></span></div>
-        <div class="service-light service-one"></div>
-        <div class="service-light service-two"></div>
+<section class="launcher @(_highContrast ? "high-contrast" : null) @(_reducedMotion ? "reduce-motion" : null)" @ref="_root" aria-labelledby="launcher-title">
+    <img class="launcher-background" src="assets/cinematic/living-frontier.webp" alt="" fetchpriority="high" />
+    <div class="launcher-shade" aria-hidden="true"></div>
+
+    <div class="launcher-utility">
+        <a href="/" aria-label="Return to Frontier 10052 website">Exit launcher</a>
+        <button type="button" data-sound-toggle aria-pressed="false">Sound off</button>
     </div>
 
-    <div class="launcher-panel">
-        <a class="launcher-brand" href="/"><strong>FRONTIER</strong><span>10052</span></a>
-        <p class="launcher-kicker">COMMAND INTERFACE</p>
+    @if (_snapshot is null)
+    {
+        <div class="launcher-loading" role="status">
+            <p>Establishing command link</p>
+            <span>Reading browser identity and local journey…</span>
+        </div>
+    }
+    else
+    {
+        <aside class="launcher-menu" aria-label="Command menu">
+            <a class="launcher-wordmark" href="/"><span>Frontier</span><b>10052</b></a>
+            <p class="launcher-location">@_snapshot.Dock.Station · @_snapshot.Dock.Berth</p>
+            <h1 id="launcher-title">@_snapshot.Ship.Name</h1>
+            <p class="launcher-hull">@_snapshot.Ship.Hull</p>
 
-        <button class="launcher-action selected" @onclick='() => Select("continue")'>
-            <span><strong>Continue</strong><small>Last save · Sol orbital traffic zone</small></span><b>›</b>
-        </button>
-        <button class="launcher-action" @onclick='() => Select("new")'>
-            <span><strong>New commander</strong><small>Begin on Earth, year 10052</small></span><b>›</b>
-        </button>
-        <button class="launcher-action" @onclick='() => Select("multiplayer")'>
-            <span><strong>Multiplayer</strong><small>Fleet services coming later</small></span><b>›</b>
-        </button>
-        <button class="launcher-action quiet" @onclick='() => Select("settings")'><span><strong>Settings</strong></span><b>›</b></button>
-        <button class="launcher-action quiet" @onclick='() => Select("news")'><span><strong>News & patch notes</strong></span><b>›</b></button>
+            @if (_snapshot.RecoverableError is not null)
+            {
+                <p class="launcher-recovery" role="alert">@_snapshot.RecoverableError</p>
+            }
 
-        <div class="server-status"><i></i> Frontier services online</div>
-    </div>
+            <nav>
+                <button type="button" class="launcher-command @(_snapshot.CanContinue ? "selected" : null)" disabled="@(!_snapshot.CanContinue || _busy)" @onclick="ContinueJourney">
+                    <span>Continue</span><small>@_snapshot.Dock.TrafficState · @_snapshot.Ship.LastSaveLabel</small>
+                </button>
+                <button type="button" class="launcher-command" disabled="@_busy" @onclick='() => OpenPanel("new")'>
+                    <span>New commander</span><small>Begin a new journey at Earth</small>
+                </button>
+                <button type="button" class="launcher-command" disabled>
+                    <span>Multiplayer</span><small>Planned · single-player first</small>
+                </button>
+                <button type="button" class="launcher-command compact" @onclick='() => OpenPanel("settings")'><span>Settings</span></button>
+                <button type="button" class="launcher-command compact" @onclick='() => OpenPanel("news")'><span>News</span></button>
+                <button type="button" class="launcher-command compact" @onclick='() => OpenPanel("patch")'><span>Patch notes</span></button>
+            </nav>
 
-    <div class="commander-card">
-        <div class="commander-avatar">AM</div>
-        <div><strong>Cmdr. Alex Mercer</strong><span>Independent trader · Level 42</span></div>
-    </div>
+            @if (_commandError is not null)
+            {
+                <p class="launcher-command-error" role="alert">@_commandError</p>
+            }
+            <div class="launcher-ready"><i></i><span>@_snapshot.CompatibilityMessage</span></div>
+        </aside>
 
-    <div class="launcher-message" role="status">
-        <span>@StatusTitle</span>
-        <small>@StatusDetail</small>
-    </div>
+        <div class="commander-summary">
+            <span class="commander-initials">@_snapshot.Commander.Initials</span>
+            <p><b>@_snapshot.Commander.DisplayName</b><small>@_snapshot.Commander.Career</small></p>
+        </div>
+
+        <section class="dock-telemetry" aria-label="Docked ship status">
+            <div><small>Location</small><b>@_snapshot.Dock.Station</b><span>@_snapshot.Dock.LocalTimeLabel</span></div>
+            <div><small>Cargo</small><b>@_snapshot.Ship.CargoLoaded / @_snapshot.Ship.CargoCapacity t</b><span>@(_snapshot.HasPlayerSave ? "Authoritative manifest" : "Showcase manifest")</span></div>
+            <div><small>Fuel</small><b>@_snapshot.Ship.FuelPercent%</b><span>Coupling connected</span></div>
+            <div><small>Drive wear</small><b>@_snapshot.Ship.DriveWearPercent%</b><span>@_snapshot.RepairCondition</span></div>
+        </section>
+        <div class="launcher-consequence-bar"><span><small>Inherited lien</small><b>@_snapshot.LienBalance.ToString("N0") cr</b></span><span><small>Legal exposure</small><b>@_snapshot.LegalExposure</b></span><p>@_snapshot.ImportantConsequences</p></div>
+
+        @if (_activePanel is not null)
+        {
+            <section class="launcher-drawer" aria-live="polite" aria-label="@PanelTitle">
+                <div class="drawer-heading">
+                    <p>@PanelKicker</p>
+                    <h2>@PanelTitle</h2>
+                    <button type="button" @onclick="ClosePanel">Close</button>
+                </div>
+
+                @switch (_activePanel)
+                {
+                    case "new":
+                        <div class="new-commander-state">
+                            <p>Your journey begins with Wayfarer, four crew members, 28,000 credits, a 72,000-credit inherited lien, and a medical delivery from Earth orbit to Mars. Mars opens the second-contract turnaround.</p>
+                            <label>Commander callsign<input @bind="_callsign" @bind:event="oninput" maxlength="32" autocomplete="nickname" placeholder="Enter callsign" /></label>
+                            @if (_snapshot.HasPlayerSave)
+                            {
+                                <label class="overwrite-confirmation"><input type="checkbox" @bind="_overwriteConfirmed" /><span>Replace this browser’s active journey and its current save.</span></label>
+                                <p class="drawer-warning">Overwrite is permanent. The existing journey remains untouched until this confirmation is checked.</p>
+                            }
+                            <button type="button" class="drawer-primary" disabled="@(!CanCreateCommander)" @onclick="CreateCommanderAsync">@(_busy ? "Creating journey…" : "Create local commander")</button>
+                            <p class="control-explanation">@CreateExplanation</p>
+                        </div>
+                        break;
+                    case "settings":
+                        <div class="settings-list">
+                            <label><span>Reduced camera motion<small>Use crossfades instead of cinematic travel.</small></span><input type="checkbox" @bind="_reducedMotion" /></label>
+                            <label><span>High contrast<small>Strengthen type, focus, and interface boundaries.</small></span><input type="checkbox" @bind="_highContrast" /></label>
+                            <label><span>Subtitle speaker labels<small>Identify radio and crew dialogue sources.</small></span><input type="checkbox" @bind="_speakerLabels" /></label>
+                            <label><span>Scene quality<small>Changes image and real-time scene detail.</small></span><select @bind="_quality"><option>Automatic</option><option>High</option><option>Balanced</option><option>Low bandwidth</option></select></label>
+                        </div>
+                        break;
+                    case "news":
+                        <div class="notice-list">
+                            @foreach (var notice in _snapshot.Notices.Where(notice => !notice.Category.StartsWith("Patch", StringComparison.Ordinal)))
+                            {
+                                <article><small>@notice.Category</small><h3>@notice.Title</h3><p>@notice.Detail</p></article>
+                            }
+                        </div>
+                        break;
+                    default:
+                        <div class="notice-list">
+                            @foreach (var notice in _snapshot.Notices.Where(notice => notice.Category.StartsWith("Patch", StringComparison.Ordinal)))
+                            {
+                                <article><small>@notice.Category</small><h3>@notice.Title</h3><p>@notice.Detail</p></article>
+                            }
+                        </div>
+                        break;
+                }
+            </section>
+        }
+
+        <div class="crew-ribbon" aria-label="Crew activity">
+            @foreach (var member in _snapshot.Crew)
+            {
+                <div><small>@member.Role · @member.Status</small><b>@member.Name</b><span>@member.Activity</span></div>
+            }
+        </div>
+    }
 </section>
 
 @code {
-    private string StatusTitle { get; set; } = "Your ship is ready.";
-    private string StatusDetail { get; set; } = "Docking clamps released on command.";
+    private ElementReference _root;
+    private IJSObjectReference? _cinematicModule;
+    private IJSObjectReference? _profileModule;
+    private LauncherSnapshot? _snapshot;
+    private string? _playerKey;
+    private string? _activePanel;
+    private string? _commandError;
+    private string _callsign = string.Empty;
+    private string _quality = "Automatic";
+    private bool _reducedMotion;
+    private bool _highContrast;
+    private bool _speakerLabels = true;
+    private bool _overwriteConfirmed;
+    private bool _busy;
 
-    private void Select(string action)
+    private bool CanCreateCommander =>
+        !_busy &&
+        !string.IsNullOrWhiteSpace(_callsign) &&
+        _callsign.Trim().Length >= 2 &&
+        (_snapshot?.HasPlayerSave != true || _overwriteConfirmed);
+
+    private string CreateExplanation => _snapshot?.HasPlayerSave == true && !_overwriteConfirmed
+        ? "Confirm the permanent overwrite before creating a new journey."
+        : string.IsNullOrWhiteSpace(_callsign) || _callsign.Trim().Length < 2
+            ? "Enter at least two characters for the commander callsign."
+            : "Creates and saves the deterministic seed 10052 journey on this server.";
+
+    private string PanelKicker => _activePanel switch
     {
-        (StatusTitle, StatusDetail) = action switch
+        "new" => "Local profile",
+        "settings" => "Command preferences",
+        "news" => "Frontier network",
+        _ => "Release channel",
+    };
+
+    private string PanelTitle => _activePanel switch
+    {
+        "new" => "New commander",
+        "settings" => "Settings",
+        "news" => "News",
+        _ => "Patch notes",
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _cinematicModule = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/cinematic.js");
+        _profileModule = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/browser-profile.js");
+        await _cinematicModule.InvokeVoidAsync("initializeLauncher", _root);
+        _playerKey = await _profileModule.InvokeAsync<string>("getOrCreatePlayerKey");
+        _snapshot = await LauncherQuery.GetAsync(_playerKey);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenPanel(string panel)
+    {
+        _activePanel = panel;
+        _commandError = null;
+        _overwriteConfirmed = false;
+    }
+
+    private void ClosePanel() => _activePanel = null;
+
+    private void ContinueJourney() => Navigation.NavigateTo(_snapshot?.ContinuePath ?? "/operations");
+
+    private async Task CreateCommanderAsync()
+    {
+        if (!CanCreateCommander || _playerKey is null) return;
+        _busy = true;
+        _commandError = null;
+        CommandResult<StationOperationsSnapshot> result = await Operations.StartNewGameAsync(_playerKey, _callsign, _overwriteConfirmed);
+        _busy = false;
+        if (!result.IsSuccess)
         {
-            "continue" => ("Resuming command.", "Loading the last known ship, crew, cargo, and local traffic state."),
-            "new" => ("New commander selected.", "Character origin, career, ship financing, and starting system will follow."),
-            "multiplayer" => ("Fleet services unavailable.", "The initial release is a rich single-player simulation; multiplayer remains planned."),
-            "settings" => ("Settings console opened.", "Display, accessibility, audio, controls, and simulation detail settings are planned here."),
-            _ => ("Frontier network synchronized.", "News, market events, faction bulletins, and development updates will appear here.")
-        };
+            _commandError = result.Error?.Message;
+            return;
+        }
+
+        Navigation.NavigateTo("/operations");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_cinematicModule is not null)
+        {
+            try
+            {
+                await _cinematicModule.InvokeVoidAsync("disposeLauncher", _root);
+                await _cinematicModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser has already disconnected.
+            }
+        }
+
+        if (_profileModule is not null)
+        {
+            try { await _profileModule.DisposeAsync(); }
+            catch (JSDisconnectedException) { }
+        }
     }
 }

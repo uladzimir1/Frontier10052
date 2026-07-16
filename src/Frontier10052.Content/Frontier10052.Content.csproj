@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Versioned content loading, localization, and validation for Frontier 10052.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Frontier10052.Domain/Frontier10052.Domain.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Persistence, file, telemetry, networking, and platform adapters for Frontier 10052.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Frontier10052.Domain/Frontier10052.Domain.csproj" />
+    <ProjectReference Include="../Frontier10052.Gameplay/Frontier10052.Gameplay.csproj" />
+  </ItemGroup>
+</Project>

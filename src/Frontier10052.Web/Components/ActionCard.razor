@@ -1,0 +1,6 @@
+<article class="turnaround-action-card @(!Action.IsAvailable ? "unavailable" : null)"><small>@Action.Consequence</small><h3>@Action.Label</h3><p>@Action.Explanation</p><button type="button" aria-label="Choose @Action.Label" disabled="@(!Action.IsAvailable)" @onclick="OnChoose">Choose</button></article>
+
+@code {
+    [Parameter, EditorRequired] public TurnaroundAction Action { get; set; } = null!;
+    [Parameter, EditorRequired] public EventCallback OnChoose { get; set; }
+}

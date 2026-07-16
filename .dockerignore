@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.vs
+.vscode
+**/bin
+**/obj
+*.user
+*.suo
+.DS_Store
+appsettings.Development.json

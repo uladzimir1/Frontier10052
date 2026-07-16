@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Frontier10052.Content/Frontier10052.Content.csproj" />
+    <ProjectReference Include="../../src/Frontier10052.Domain/Frontier10052.Domain.csproj" />
+    <ProjectReference Include="../../src/Frontier10052.Gameplay/Frontier10052.Gameplay.csproj" />
+    <ProjectReference Include="../../src/Frontier10052.Infrastructure/Frontier10052.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Frontier10052.Simulation/Frontier10052.Simulation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+</Project>

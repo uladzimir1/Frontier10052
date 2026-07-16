@@ -1,0 +1,369 @@
+@page "/operations"
+@implements IAsyncDisposable
+@inject IStationOperationsService StationOperations
+@inject IJourneyService Journey
+@inject ITurnaroundService Turnaround
+@inject IJSRuntime JavaScript
+
+<PageTitle>@(_snapshot is null ? "Station Operations — Frontier 10052" : $"{_snapshot.LocationName} Operations — Frontier 10052")</PageTitle>
+<HeadContent>
+    <meta name="description" content="Operate the Wayfarer at its current station, settle contracts, service persistent ship and crew state, and authorize content-driven routes." />
+</HeadContent>
+
+<section class="operations-shell @(_snapshot?.Departure.Authorized == true ? "departure-authorized" : null)" aria-labelledby="operations-title">
+    <img class="operations-background" src="assets/cinematic/living-frontier.webp" alt="" fetchpriority="high" />
+    <div class="operations-shade" aria-hidden="true"></div>
+
+    <header class="operations-topbar">
+        <a class="operations-wordmark" href="/"><span>Frontier</span><b>10052</b></a>
+        <div>
+            @if (_snapshot is not null)
+            {
+                <span>@_snapshot.LocationName · @_snapshot.GameTimeLabel</span>
+            }
+            <a href="/play">Return to launcher</a>
+        </div>
+    </header>
+
+    @if (_snapshot?.IsTurnaround == true && _turnaround is not null && _playerKey is not null)
+    {
+        <MarsTurnaroundView InitialSnapshot="_turnaround" PlayerKey="@_playerKey" />
+    }
+    else if (_snapshot?.IsDestinationOperations == true && _journey is not null && _playerKey is not null)
+    {
+        <StationArrivalView InitialSnapshot="_journey" PlayerKey="@_playerKey" OnFirstContractSettled="ReloadStationAsync" />
+    }
+    else if (_snapshot is null && _loadError is null)
+    {
+        <div class="operations-loading" role="status"><b>Opening station operations</b><span>Validating local journey, content, and manifest…</span></div>
+    }
+    else if (_snapshot is null)
+    {
+        <div class="operations-unavailable" role="alert">
+            <p>Journey unavailable</p>
+            <h1 id="operations-title">Command link could not open</h1>
+            <span>@_loadError</span>
+            <a href="/play">Return to launcher and create a new commander</a>
+        </div>
+    }
+    else
+    {
+        <aside class="operations-rail" aria-label="Station operation sections">
+            <p class="rail-kicker">First contract</p>
+            <h1 id="operations-title">@_snapshot.Contract.Origin to @_snapshot.Contract.Destination</h1>
+            <span class="rail-sequence">Seed @_snapshot.Seed · command @_snapshot.CommandSequence</span>
+            <nav>
+                @foreach (OperationStep step in Steps)
+                {
+                    <button type="button" class="@(_activeSection == step.Index ? "active" : null) @(IsStepComplete(step.Index) ? "complete" : null)" @onclick="() => _activeSection = step.Index">
+                        <small>@step.Index.ToString("00")</small><span>@step.Label</span><i aria-hidden="true"></i>
+                    </button>
+                }
+            </nav>
+            <div class="rail-route"><small>Route</small><b>@_snapshot.Contract.Origin</b><i></i><b>@_snapshot.Contract.Destination</b><span>@_snapshot.Contract.RouteDurationHours h baseline · travel and settlement are active</span></div>
+        </aside>
+
+        <main class="operations-workspace">
+            @if (_commandError is not null)
+            {
+                <div class="operations-error" role="alert"><b>Command not accepted</b><span>@_commandError</span><button type="button" @onclick="() => _commandError = null">Dismiss</button></div>
+            }
+
+            @if (_snapshot.Departure.Authorized)
+            {
+                <section class="undock-handoff" aria-labelledby="undock-title">
+                    <p>Departure authority · manifest locked</p>
+                    <h2 id="undock-title">Wayfarer is cleared to undock.</h2>
+                    <span>The active contract, speculative cargo, engineer outcome, credits, and command sequence are persisted. Position and station time remain authoritative at @_snapshot.Contract.Origin until travel begins.</span>
+                    <div><b>@_snapshot.Contract.Origin</b><i></i><b>@_snapshot.Contract.Destination</b></div>
+                    <a href="/travel">Begin @_snapshot.Contract.Origin–@_snapshot.Contract.Destination transit</a>
+                </section>
+            }
+            else
+            {
+                @switch (_activeSection)
+                {
+                    case 1:
+                        <section class="workspace-section crew-briefing" aria-labelledby="briefing-title">
+                            <div class="workspace-heading"><p>01 · Crew briefing</p><h2 id="briefing-title">Four people. One worn ship. One decision window.</h2><span>Meet Wayfarer’s crew and acknowledge the conditions they are accepting.</span></div>
+                            <div class="ship-debt-strip">
+                                <div><small>Ship</small><b>@_snapshot.Ship.Name</b><span>@_snapshot.Ship.Hull</span></div>
+                                <div><small>Hold</small><b>@_snapshot.Ship.CargoCapacity tonnes</b><span>18 tonnes reserved by the contract</span></div>
+                                <div><small>Fuel / wear</small><b>@_snapshot.Ship.FuelPercent% / @_snapshot.Ship.DriveWearPercent%</b><span>@_snapshot.Engineer.ReliabilityRisk</span></div>
+                                <div><small>Working capital</small><b>@Credits(_snapshot.Finances.AvailableCredits)</b><span>No cargo debt added this stop</span></div>
+                            </div>
+                            <div class="crew-briefing-list">
+                                @foreach (CrewPresentation member in _snapshot.Crew)
+                                {
+                                    <article>
+                                        <small>@member.Role · @member.Status</small><h3>@member.Name</h3><p>@member.Briefing</p>
+                                        <dl><div><dt>Loyalty</dt><dd>@member.Loyalty%</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue%</dd></div></dl>
+                                    </article>
+                                }
+                            </div>
+                            <div class="workspace-action">
+                                <button type="button" disabled="@(!_snapshot.Briefing.AcknowledgeAction.IsAvailable || _busy)" @onclick="AcknowledgeBriefing">Acknowledge crew briefing</button>
+                                <p>@_snapshot.Briefing.AcknowledgeAction.Explanation</p>
+                            </div>
+                        </section>
+                        break;
+                    case 2:
+                        <section class="workspace-section contract-desk" aria-labelledby="contract-title">
+                            <div class="workspace-heading"><p>02 · Contract desk</p><h2 id="contract-title">@_snapshot.Contract.Title</h2><span>@_snapshot.Contract.Issuer · medical priority transfer</span></div>
+                            <div class="contract-route"><div><small>Origin</small><b>@_snapshot.Contract.Origin</b></div><i></i><div><small>Delivery</small><b>@_snapshot.Contract.Destination</b></div></div>
+                            <div class="contract-terms">
+                                <div><small>Required shipment</small><b>@_snapshot.Contract.Quantity t</b><span>@_snapshot.Contract.Commodity</span></div>
+                                <div><small>Deadline</small><b>@_snapshot.Contract.DeadlineHours h</b><span>@_snapshot.Contract.DeadlineLabel</span></div>
+                                <div><small>Reward</small><b>+@Credits(_snapshot.Contract.Reward)</b><span>Paid on sealed delivery</span></div>
+                                <div class="negative"><small>Failure claim</small><b>−@Credits(_snapshot.Contract.FailurePenalty)</b><span>Debited on failure</span></div>
+                            </div>
+                            <p class="contract-consequence">@_snapshot.Contract.Consequence</p>
+                            <div class="workspace-action">
+                                <button type="button" disabled="@(!_snapshot.Contract.AcceptAction.IsAvailable || _busy)" @onclick="AcceptContract">@(_snapshot.Contract.Accepted ? "Contract accepted" : "Accept contract and seal cargo")</button>
+                                <p>@_snapshot.Contract.AcceptAction.Explanation</p>
+                            </div>
+                        </section>
+                        break;
+                    case 3:
+                        <section class="workspace-section intelligence-desk" aria-labelledby="intelligence-title">
+                            <div class="workspace-heading"><p>03 · Market intelligence</p><h2 id="intelligence-title">Mars is sending two different futures.</h2><span>Remote reports never update magically. Age, source, confidence, and provenance decide how much risk you carry.</span></div>
+                            <div class="report-list">
+                                @foreach (MarketReportPresentation report in _snapshot.Reports)
+                                {
+                                    <article class="@(report.Verified ? "verified" : "unverified")">
+                                        <div class="report-status"><span>@(report.Verified ? "Verified source" : "Unverified source")</span><b>@report.ConfidencePercent% confidence</b></div>
+                                        <h3>@report.Headline</h3><p>@report.Detail</p>
+                                        <dl><div><dt>Observed</dt><dd>@report.AgeHours hours ago</dd></div><div><dt>Source</dt><dd>@report.Source</dd></div><div><dt>Legality</dt><dd>@report.Legality</dd></div></dl>
+                                        @if (report.EngineerAnalyzed) { <span class="engineer-mark">Ilya corroborated manifest signatures</span> }
+                                    </article>
+                                }
+                            </div>
+                            <aside class="safer-position"><small>Lower variance</small><b>Coolant couplings remain the safer alternative.</b><span>Estimated Mars margin: +140 to +310 credits per tonne, with steady maintenance demand and less dependence on the convoy timing.</span></aside>
+                            <div class="decision-actions" aria-label="Record market assessment">
+                                <button type="button" disabled="@(!CanRecordReportDecision)" @onclick="() => RecordDecision(ReportDecision.ActuatorShortage)">Back verified shortage</button>
+                                <button type="button" disabled="@(!CanRecordReportDecision)" @onclick="() => RecordDecision(ReportDecision.ConvoyArrival)">Back convoy arrival</button>
+                                <button type="button" disabled="@(!CanRecordReportDecision)" @onclick="() => RecordDecision(ReportDecision.CoolantAlternative)">Choose coolant</button>
+                                <button type="button" disabled="@(!CanRecordReportDecision)" @onclick="() => RecordDecision(ReportDecision.SkipSpeculativeTrade)">Skip speculation</button>
+                            </div>
+                            <p class="control-explanation">@ReportDecisionExplanation</p>
+                        </section>
+                        break;
+                    case 4:
+                        <section class="workspace-section cargo-market" aria-labelledby="cargo-title">
+                            <div class="workspace-heading"><p>04 · Cargo market</p><h2 id="cargo-title">Spend only what your thesis can carry.</h2><span>Prices are live at Earth. Mars outcomes are report-based ranges, not guarantees.</span></div>
+                            <div class="market-table" role="table" aria-label="Earth cargo market">
+                                <div class="market-row market-head" role="row"><span>Commodity</span><span>Earth ask</span><span>Stock</span><span>Mars profit / t</span></div>
+                                @foreach (MarketItemPresentation item in _snapshot.Market)
+                                {
+                                    <div class="market-row @(!item.Purchasable ? "locked" : null)" role="row">
+                                        <span><b>@item.Name</b><small>@item.Description<br />@item.Legality</small></span>
+                                        <span>@Credits(item.UnitPrice)</span><span>@item.Stock t</span><span>@SignedCredits(item.EstimatedProfitLow) to @SignedCredits(item.EstimatedProfitHigh)</span>
+                                    </div>
+                                }
+                            </div>
+                            <div class="purchase-console">
+                                <label>Commodity<select @bind="_selectedCommodityId">
+                                    @foreach (MarketItemPresentation item in _snapshot.Market.Where(item => item.Purchasable))
+                                    {
+                                        <option value="@item.Id">@item.Name · @Credits(item.UnitPrice)/t</option>
+                                    }
+                                </select></label>
+                                <label>Tonnes<input type="number" min="1" max="72" step="1" @bind="_purchaseQuantity" /></label>
+                                <div><button type="button" disabled="@(!CanPurchase || _busy)" @onclick="PurchaseCargo">Purchase cargo</button><p>@PurchaseExplanation</p></div>
+                            </div>
+                        </section>
+                        break;
+                    default:
+                        <section class="workspace-section departure-review" aria-labelledby="departure-title">
+                            <div class="workspace-heading"><p>05 · Assignment and review</p><h2 id="departure-title">Use Ilya where uncertainty hurts most.</h2><span>One task improves the market picture. The other improves departure reliability. Neither removes both risks.</span></div>
+                            <div class="engineer-options">
+                                <article><small>Market certainty</small><h3>Analyze courier manifest</h3><p>Raise confidence in the newer convoy-arrival report by validating signatures, mass ledgers, and departure telemetry.</p><button type="button" disabled="@(!_snapshot.Engineer.AnalyzeAction.IsAvailable || _busy)" @onclick="() => AssignEngineer(EngineerAssignment.AnalyzeCourierManifest)">Assign analysis</button></article>
+                                <article><small>Departure reliability</small><h3>Inspect the drive</h3><p>Reduce reliability risk around Wayfarer’s 17% drive wear. Market uncertainty remains unchanged.</p><button type="button" disabled="@(!_snapshot.Engineer.InspectAction.IsAvailable || _busy)" @onclick="() => AssignEngineer(EngineerAssignment.InspectDrive)">Assign inspection</button></article>
+                            </div>
+                            <p class="engineer-outcome">@_snapshot.Engineer.Outcome</p>
+                            <p class="control-explanation">@_snapshot.Engineer.AnalyzeAction.Explanation</p>
+                            <div class="readiness-list">
+                                @foreach (ReadinessRequirement requirement in _snapshot.Departure.Requirements)
+                                {
+                                    <div class="@(requirement.Complete ? "complete" : null)"><i aria-hidden="true"></i><span><b>@requirement.Label</b><small>@requirement.Detail</small></span></div>
+                                }
+                            </div>
+                            <div class="authorize-action">
+                                <button type="button" disabled="@(!_snapshot.Departure.AuthorizeAction.IsAvailable || _busy)" @onclick="AuthorizeDeparture">Authorize departure manifest</button>
+                                <p>@_snapshot.Departure.AuthorizeAction.Explanation</p>
+                            </div>
+                        </section>
+                        break;
+                }
+            }
+        </main>
+
+        <aside class="manifest-panel" aria-label="Persistent manifest and finances">
+            <div class="manifest-commander"><span>@_snapshot.Commander.Initials</span><p><b>@_snapshot.Commander.DisplayName</b><small>@_snapshot.Commander.Career</small></p></div>
+            <section><p>Wayfarer manifest</p><div class="hold-meter"><span style="width: @CargoPercent%"></span></div><b>@_snapshot.Ship.CargoLoaded / @_snapshot.Ship.CargoCapacity t</b><small>@_snapshot.Ship.CargoAvailable tonnes free</small></section>
+            <section class="manifest-cargo">
+                @if (_snapshot.Cargo.Count == 0)
+                {
+                    <p class="empty-manifest">Hold empty · accepting the contract loads the sealed transfer.</p>
+                }
+                else
+                {
+                    @foreach (CargoPresentation cargo in _snapshot.Cargo)
+                    {
+                        <div><span><b>@cargo.Name</b><small>@(cargo.IsContractCargo ? "Contract" : "Speculative") · @(cargo.Sealed ? "Sealed" : "Open manifest")</small></span><strong>@cargo.Quantity t</strong></div>
+                    }
+                }
+            </section>
+            <section class="manifest-finance"><div><small>Available</small><b>@Credits(_snapshot.Finances.AvailableCredits)</b></div><div><small>Contract upside</small><b>+@Credits(_snapshot.Finances.ContractReward)</b></div><div><small>Failure exposure</small><b>−@Credits(_snapshot.Finances.FailureExposure)</b></div></section>
+            <footer><span>@_snapshot.ContentPackVersion</span><span>Schema @_snapshot.SchemaVersion</span><span>Command @_snapshot.CommandSequence</span></footer>
+        </aside>
+    }
+</section>
+
+@code {
+    private static readonly OperationStep[] Steps =
+    [
+        new(1, "Briefing"),
+        new(2, "Contract"),
+        new(3, "Intelligence"),
+        new(4, "Cargo"),
+        new(5, "Departure"),
+    ];
+
+    private IJSObjectReference? _profileModule;
+    private StationOperationsSnapshot? _snapshot;
+    private JourneySnapshot? _journey;
+    private TurnaroundSnapshot? _turnaround;
+    private string? _playerKey;
+    private string? _loadError;
+    private string? _commandError;
+    private string _selectedCommodityId = "actuator-assemblies";
+    private int _purchaseQuantity = 1;
+    private int _activeSection = 1;
+    private bool _busy;
+
+    private decimal CargoPercent => _snapshot is null || _snapshot.Ship.CargoCapacity == 0 ? 0 : _snapshot.Ship.CargoLoaded * 100m / _snapshot.Ship.CargoCapacity;
+    private bool CanRecordReportDecision => !_busy && _snapshot?.ReportDecision is null && _snapshot?.Departure.Authorized == false;
+    private string ReportDecisionExplanation => _snapshot?.ReportDecision is not null
+        ? $"Recorded: {_snapshot.ReportDecision}. The journal entry is immutable for this departure."
+        : "Recording an assessment is optional for departure; choosing ‘Skip speculation’ explicitly closes the trade decision.";
+
+    private MarketItemPresentation? SelectedMarketItem => _snapshot?.Market.SingleOrDefault(item => item.Id == _selectedCommodityId);
+    private bool CanPurchase => PurchaseBlocker is null;
+    private string PurchaseExplanation => PurchaseBlocker ?? $"Purchase costs {Credits(SelectedMarketItem!.UnitPrice * _purchaseQuantity)} and is committed atomically to this browser’s save.";
+
+    private string? PurchaseBlocker
+    {
+        get
+        {
+            if (_snapshot is null || SelectedMarketItem is null) return "Select an available commodity.";
+            if (_snapshot.Departure.Authorized) return "The authorized manifest is locked.";
+            if (_purchaseQuantity <= 0) return "Choose at least one tonne.";
+            if (_purchaseQuantity > SelectedMarketItem.Stock) return $"Only {SelectedMarketItem.Stock} tonnes remain in station stock.";
+            if (_purchaseQuantity > _snapshot.Ship.CargoAvailable) return $"Only {_snapshot.Ship.CargoAvailable} tonnes remain in the hold.";
+            long cost = checked(SelectedMarketItem.UnitPrice * _purchaseQuantity);
+            if (cost > _snapshot.Finances.AvailableCredits) return $"The purchase costs {Credits(cost)}; only {Credits(_snapshot.Finances.AvailableCredits)} are available.";
+            return null;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _profileModule = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/browser-profile.js");
+        _playerKey = await _profileModule.InvokeAsync<string>("getOrCreatePlayerKey");
+        await LoadStationAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadStationAsync()
+    {
+        if (_playerKey is null) return;
+        CommandResult<StationOperationsSnapshot> result = await StationOperations.ResumeGameAsync(_playerKey);
+        if (result.IsSuccess)
+        {
+            _snapshot = result.Value;
+            _journey = null;
+            _turnaround = null;
+            if (_snapshot?.IsTurnaround == true)
+            {
+                CommandResult<TurnaroundSnapshot> turnaroundResult = await Turnaround.ResumeMarsOperationsAsync(_playerKey);
+                if (turnaroundResult.IsSuccess) _turnaround = turnaroundResult.Value;
+                else _loadError = turnaroundResult.Error?.Message;
+            }
+            else if (_snapshot?.IsDestinationOperations == true)
+            {
+                CommandResult<JourneySnapshot> journeyResult = await Journey.ResumeAsync(_playerKey);
+                if (journeyResult.IsSuccess) _journey = journeyResult.Value;
+                else _loadError = journeyResult.Error?.Message;
+            }
+            if (_snapshot?.Departure.Authorized == true) _activeSection = 5;
+        }
+        else
+        {
+            _loadError = result.Error?.Message;
+        }
+    }
+
+    private async Task ReloadStationAsync()
+    {
+        await LoadStationAsync();
+        await InvokeAsync(StateHasChanged);
+        await JavaScript.InvokeVoidAsync("scrollTo", 0, 0);
+    }
+
+    private bool IsStepComplete(int index) => index switch
+    {
+        1 => _snapshot?.Briefing.Acknowledged == true,
+        2 => _snapshot?.Contract.Accepted == true,
+        3 => _snapshot?.ReportDecision is not null,
+        4 => _snapshot?.Cargo.Count > 0,
+        5 => _snapshot?.Departure.Authorized == true,
+        _ => false,
+    };
+
+    private Task AcknowledgeBriefing() => RunCommand(() => StationOperations.AcknowledgeBriefingAsync(_playerKey!));
+    private Task AcceptContract() => RunCommand(() => StationOperations.AcceptContractAsync(_playerKey!));
+    private Task RecordDecision(ReportDecision decision) => RunCommand(() => StationOperations.RecordReportDecisionAsync(_playerKey!, decision));
+    private Task AssignEngineer(EngineerAssignment assignment) => RunCommand(() => StationOperations.AssignEngineerAsync(_playerKey!, assignment));
+
+    private async Task PurchaseCargo()
+    {
+        if (!CanPurchase) return;
+        await RunCommand(() => StationOperations.PurchaseCargoAsync(_playerKey!, new CommodityId(_selectedCommodityId), new Tonnes(_purchaseQuantity)));
+    }
+
+    private async Task AuthorizeDeparture()
+    {
+        await RunCommand(() => StationOperations.AuthorizeDepartureAsync(_playerKey!));
+        if (_snapshot?.Departure.Authorized == true)
+        {
+            _activeSection = 5;
+            await InvokeAsync(StateHasChanged);
+            await JavaScript.InvokeVoidAsync("scrollTo", 0, 0);
+        }
+    }
+
+    private async Task RunCommand(Func<ValueTask<CommandResult<StationOperationsSnapshot>>> command)
+    {
+        if (_busy || _playerKey is null) return;
+        _busy = true;
+        _commandError = null;
+        CommandResult<StationOperationsSnapshot> result = await command();
+        _busy = false;
+        if (result.IsSuccess) _snapshot = result.Value;
+        else _commandError = result.Error?.Message;
+    }
+
+    private static string Credits(long value) => $"{value:N0} cr";
+    private static string SignedCredits(long value) => value < 0 ? $"−{Math.Abs(value):N0}" : $"+{value:N0}";
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_profileModule is null) return;
+        try { await _profileModule.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+
+    private sealed record OperationStep(int Index, string Label);
+}

@@ -1,0 +1,6 @@
+<div class="journey-command"><button type="button" disabled="@(!Action.IsAvailable || Busy)" @onclick="OnClick">@Action.Label</button><p><b>@Action.Consequence</b><span>@Action.Explanation</span></p></div>
+@code {
+    [Parameter, EditorRequired] public JourneyAction Action { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+}

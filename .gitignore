@@ -6,3 +6,5 @@ obj/
 *.suo
 .DS_Store
 appsettings.Development.json
+src/Frontier10052.Web/App_Data/
+.gstack/

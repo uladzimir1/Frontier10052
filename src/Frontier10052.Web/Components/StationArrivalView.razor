@@ -1,0 +1,104 @@
+@inject IJourneyService Journey
+
+@if (_snapshot is null)
+{
+    <div class="operations-loading" role="status"><b>Opening destination custody</b><span>Reconciling route history, cargo, and contract settlement…</span></div>
+}
+else
+{
+    <aside class="operations-rail mars-rail" aria-label="Destination operation sections">
+        <p class="rail-kicker">Voyage @_snapshot.VoyageNumber arrival</p><h1>@_snapshot.Route.Destination</h1><span class="rail-sequence">Seed @_snapshot.Seed · command @_snapshot.CommandSequence</span>
+        <nav>
+            <button class="@(_active == 1 ? "active" : null) complete" @onclick="() => _active = 1"><small>01</small><span>Arrival</span><i></i></button>
+            @if (HasOpenMarket)
+            {
+                <button class="@(_active == 2 ? "active" : null) @(_snapshot.Sales.Count > 0 ? "complete" : null)" @onclick="() => _active = 2"><small>02</small><span>Market</span><i></i></button>
+            }
+            <button class="@(_active == 3 ? "active" : null) @(_snapshot.Phase is JourneyPhase.Turnaround or JourneyPhase.Delivered ? "complete" : null)" @onclick="() => _active = 3"><small>0@(HasOpenMarket ? 3 : 2)</small><span>Delivery</span><i></i></button>
+        </nav>
+        <div class="rail-route"><small>Completed route</small><b>@_snapshot.Route.Origin</b><i></i><b>@_snapshot.Route.Destination</b><span>@_snapshot.Route.DurationHours h baseline · @_snapshot.Route.DelayHours h delay</span></div>
+    </aside>
+
+    <main class="operations-workspace mars-workspace">
+        @if (_error is not null) { <div class="operations-error" role="alert"><b>Command not accepted</b><span>@_error</span><button @onclick="() => _error = null">Dismiss</button></div> }
+        @if (_active == 1)
+        {
+            <section class="workspace-section mars-arrival"><div class="workspace-heading"><p>01 · Docking report</p><h2>Wayfarer arrived with the ship—and the crew—changed.</h2><span>@_snapshot.LastOutcome</span></div>
+                <div class="arrival-ledger"><article><small>Actual arrival</small><b>@_snapshot.Route.ActualArrival</b><span>@_snapshot.Contract.HoursRemaining hours before contract deadline</span></article><article><small>Encounter</small><b>@(_snapshot.Encounter?.Title ?? "Route clear")</b><span>@(_snapshot.Encounter?.Outcome ?? "No contact outcome recorded")</span></article><article><small>Ship consequence</small><b>@_snapshot.Ship.FuelPercent% fuel · @_snapshot.Ship.DriveWearPercent% wear</b><span>Lien @_snapshot.LienPrincipal.ToString("N0") cr · legal exposure @_snapshot.LegalExposure</span></article></div>
+                <div class="crew-consequence-grid">
+                    @foreach (JourneyCrewPresentation member in _snapshot.Crew ?? [])
+                    {
+                        <article><small>@member.Role · fatigue @member.Fatigue</small><b>@member.Name · loyalty @member.Loyalty</b><span>@member.LastMemory</span></article>
+                    }
+                </div>
+                <button class="mars-next" @onclick="() => _active = HasOpenMarket ? 2 : 3">@(HasOpenMarket ? "Review destination bids" : "Continue to cargo delivery")</button>
+            </section>
+        }
+        else if (_active == 2 && HasOpenMarket)
+        {
+            <section class="workspace-section mars-market"><div class="workspace-heading"><p>02 · Market settlement</p><h2>Mars prices are now resolved facts.</h2><span>Speculative cargo uses the remaining hold only. Contract cargo stays locked and cannot be sold.</span></div>
+                <div class="mars-bid-list" role="table" aria-label="Destination market bids">
+                    <div class="mars-bid-row head" role="row"><span>Commodity</span><span>Bid</span><span>Realized margin</span><span>Aboard</span></div>
+                    @foreach (DestinationBidPresentation bid in _snapshot.DestinationMarket)
+                    {
+                        <div class="mars-bid-row" role="row"><span><b>@bid.Name</b><small>@(bid.Margin < 0 ? "Convoy oversupply" : "Port demand confirmed")</small></span><span>@Credits(bid.UnitPrice)</span><span class="@(bid.Margin < 0 ? "loss" : "gain")">@Signed(bid.Margin) / t</span><span>@bid.OwnedQuantity t</span></div>
+                    }
+                </div>
+                <div class="mars-sell-console"><label>Owned cargo<select @bind="_commodity"><option value="">Select cargo</option>@foreach (DestinationBidPresentation bid in _snapshot.DestinationMarket.Where(item => item.OwnedQuantity > 0)) { <option value="@bid.CommodityId">@bid.Name · @bid.OwnedQuantity t</option> }</select></label><label>Tonnes<input type="number" min="1" max="72" @bind="_quantity" /></label><div><button disabled="@(!CanSell || _busy)" @onclick="Sell">Sell selected cargo</button><p>@SellExplanation</p></div></div>
+                @if (_snapshot.Sales.Count > 0) { <div class="sales-journal"><p>Committed sales</p>@foreach (SalePresentation sale in _snapshot.Sales) { <div><span>@sale.Quantity t · @sale.Commodity</span><b>+@Credits(sale.Proceeds)</b></div> }</div> }
+                <button class="mars-next" @onclick="() => _active = 3">Continue to contract delivery</button>
+            </section>
+        }
+        else
+        {
+            <section class="workspace-section mars-delivery"><div class="workspace-heading"><p>@(HasOpenMarket ? "03" : "02") · Destination custody</p><h2>@(_snapshot.Phase is JourneyPhase.Turnaround or JourneyPhase.Delivered ? "The contract is settled." : "Present the locked cargo before the clock closes.")</h2><span>@_snapshot.LastOutcome</span></div>
+                <div class="delivery-proof"><article><small>Shipment</small><b>@_snapshot.Contract.Quantity t · @_snapshot.Contract.Commodity</b><span>@ContractCargoState</span></article><article><small>Deadline margin</small><b>@_snapshot.Contract.HoursRemaining h</b><span>@_snapshot.Contract.DeadlineLabel</span></article><article><small>Settlement</small><b>+@Credits(_snapshot.Contract.Reward)</b><span>Failure exposure −@Credits(_snapshot.Contract.FailurePenalty)</span></article></div>
+                @if (_snapshot.Phase == JourneyPhase.Docked) { <CommandButton Action="_snapshot.DeliverAction" Busy="_busy" OnClick="Deliver" /> }
+                else if (_snapshot.VoyageNumber == 1)
+                {
+                    <div class="journey-complete"><small>First contract settled · command @_snapshot.CommandSequence</small><h3 tabindex="-1" @ref="_completeHeading">Mars turnaround open</h3><p>@_snapshot.LastOutcome</p><button class="mars-next" @onclick="ContinueTurnaround">Service Wayfarer and choose the second contract</button></div>
+                }
+                else
+                {
+                    <div class="journey-complete"><small>Second voyage complete · command @_snapshot.CommandSequence</small><h3 tabindex="-1" @ref="_completeHeading">@_snapshot.Contract.Status</h3><p>@_snapshot.LastOutcome</p><div class="faction-settlement">@foreach (JourneyFactionPresentation faction in _snapshot.Factions ?? []) { <span>@faction.Name <b>@faction.Standing.ToString("+#;-#;0")</b></span> }<span>Legal exposure <b>@_snapshot.LegalExposure</b></span></div><a href="/play">Return to launcher</a></div>
+                }
+            </section>
+        }
+    </main>
+
+    <aside class="manifest-panel mars-manifest" aria-label="Destination manifest and finances">
+        <div class="manifest-commander"><span>@_snapshot.Commander.Initials</span><p><b>@_snapshot.Commander.DisplayName</b><small>Voyage @_snapshot.VoyageNumber · @_snapshot.Contract.Status</small></p></div>
+        <section><p>Wayfarer manifest</p><div class="hold-meter"><span style="width:@CargoPercent%"></span></div><b>@_snapshot.Ship.CargoLoaded / @_snapshot.Ship.CargoCapacity t</b><small>Authoritative @_snapshot.Route.Destination manifest</small></section>
+        <section class="manifest-cargo">@foreach (JourneyCargoPresentation cargo in _snapshot.Cargo) { <div><span><b>@cargo.Name</b><small>@(cargo.IsContractCargo ? "Contract · sealed" : "Speculative · sellable where bid exists")</small></span><strong>@cargo.Quantity t</strong></div> }</section>
+        <section class="manifest-finance"><div><small>Available</small><b>@Credits(_snapshot.Finances.Credits)</b></div><div><small>Commercial trust</small><b>@_snapshot.Finances.CommercialTrust</b></div><div><small>Inherited lien</small><b>@Credits(_snapshot.LienPrincipal)</b></div></section>
+        <footer><span>@_snapshot.ContentPackVersion</span><span>Schema @_snapshot.SchemaVersion</span><span>Command @_snapshot.CommandSequence</span></footer>
+    </aside>
+}
+
+@code {
+    [Parameter, EditorRequired] public JourneySnapshot InitialSnapshot { get; set; } = null!;
+    [Parameter, EditorRequired] public string PlayerKey { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnFirstContractSettled { get; set; }
+    private JourneySnapshot? _snapshot;
+    private int _active = 1;
+    private string _commodity = string.Empty;
+    private int _quantity = 1;
+    private string? _error;
+    private bool _busy;
+    private bool _focusCompletion;
+    private ElementReference _completeHeading;
+    protected override void OnInitialized() { _snapshot = InitialSnapshot; if (_snapshot.Phase is JourneyPhase.Turnaround or JourneyPhase.Delivered) _active = 3; }
+    private bool HasOpenMarket => _snapshot?.VoyageNumber == 1 && _snapshot.DestinationMarket.Any(item => item.IsAtCurrentStation);
+    private decimal CargoPercent => _snapshot is null ? 0 : _snapshot.Ship.CargoLoaded * 100m / _snapshot.Ship.CargoCapacity;
+    private DestinationBidPresentation? Selected => _snapshot?.DestinationMarket.SingleOrDefault(item => item.CommodityId == _commodity);
+    private bool CanSell => Selected is not null && _quantity > 0 && _quantity <= Selected.OwnedQuantity && Selected.SellAction.IsAvailable;
+    private string SellExplanation => Selected is null ? "Select speculative cargo currently aboard." : !Selected.SellAction.IsAvailable ? Selected.SellAction.Explanation : _quantity <= 0 ? "Choose at least one tonne." : _quantity > Selected.OwnedQuantity ? $"Only {Selected.OwnedQuantity} tonnes are aboard." : $"Commits proceeds of {Credits(Selected.UnitPrice * _quantity)} to the save.";
+    private string ContractCargoState => _snapshot?.Contract.Status is "Completed" or "Failed" ? "Custody settled · removed from active manifest" : _snapshot?.Cargo.Any(item => item.IsContractCargo && item.Sealed && item.Quantity >= _snapshot.Contract.Quantity) == true ? "Seals and quantity ready for validation" : "Required sealed cargo is missing";
+    private async Task Sell() { if (!CanSell) return; await Run(() => Journey.SellCargoAsync(PlayerKey, new CommodityId(_commodity), new Tonnes(_quantity))); _commodity = string.Empty; _quantity = 1; }
+    private async Task Deliver() { await Run(() => Journey.DeliverCargoAsync(PlayerKey)); _focusCompletion = _snapshot?.Phase is JourneyPhase.Turnaround or JourneyPhase.Delivered; }
+    private Task ContinueTurnaround() => OnFirstContractSettled.InvokeAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender) { if (!_focusCompletion) return; _focusCompletion = false; await _completeHeading.FocusAsync(preventScroll: true); }
+    private async Task Run(Func<ValueTask<CommandResult<JourneySnapshot>>> command) { if (_busy) return; _busy = true; _error = null; CommandResult<JourneySnapshot> result = await command(); _busy = false; if (result.IsSuccess) _snapshot = result.Value; else _error = result.Error?.Message; }
+    private static string Credits(long value) => $"{value:N0} cr";
+    private static string Signed(long value) => value < 0 ? $"−{Math.Abs(value):N0}" : $"+{value:N0}";
+}

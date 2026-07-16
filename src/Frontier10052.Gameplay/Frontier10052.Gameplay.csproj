@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Application use cases, orchestration, and presentation contracts for Frontier 10052.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Frontier10052.Content/Frontier10052.Content.csproj" />
+    <ProjectReference Include="../Frontier10052.Simulation/Frontier10052.Simulation.csproj" />
+  </ItemGroup>
+</Project>

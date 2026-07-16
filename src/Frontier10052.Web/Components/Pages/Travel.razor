@@ -1,0 +1,124 @@
+@page "/travel"
+@implements IAsyncDisposable
+@inject IJourneyService Journey
+@inject IJSRuntime JavaScript
+@inject NavigationManager Navigation
+
+<PageTitle>@(_snapshot is null ? "Active Transit — Frontier 10052" : $"{_snapshot.Route.Origin}–{_snapshot.Route.Destination} Transit — Frontier 10052")</PageTitle>
+<HeadContent><meta name="description" content="Follow Wayfarer's active content-driven route, resolve its deterministic encounter, and commit arrival at the contract destination." /></HeadContent>
+
+<section class="travel-shell phase-@(_snapshot?.Phase.ToString().ToLowerInvariant())" aria-labelledby="travel-title">
+    <img class="travel-background" src="assets/cinematic/solar-pullback.webp" alt="" fetchpriority="high" />
+    <div class="travel-shade" aria-hidden="true"></div>
+    <header class="travel-topbar">
+        <a class="operations-wordmark" href="/"><span>Frontier</span><b>10052</b></a>
+        <div>@if (_snapshot is not null) { <span>@_snapshot.LocationLabel · @_snapshot.GameTimeLabel</span> }<a href="/play">Launcher</a></div>
+    </header>
+
+    @if (_snapshot is null && _loadError is null)
+    {
+        <div class="travel-loading" role="status"><b>Reading flight state</b><span>Validating route, manifest, and simulation clock…</span></div>
+    }
+    else if (_snapshot is null)
+    {
+        <div class="travel-loading" role="alert"><b>Transit unavailable</b><span>@_loadError</span><a href="/play">Return to launcher</a></div>
+    }
+    else
+    {
+        <aside class="travel-rail">
+            <p>Wayfarer / Flight @_snapshot.VoyageNumber.ToString("00")</p><h1 id="travel-title">@_snapshot.Route.Origin to @_snapshot.Route.Destination</h1>
+            <span>Seed @_snapshot.Seed · command @_snapshot.CommandSequence</span>
+            <ol aria-label="Journey progress">
+                <li class="@StepClass(1)"><i></i><span><small>01</small>Undock</span></li>
+                <li class="@StepClass(2)"><i></i><span><small>02</small>Transfer orbit</span></li>
+                <li class="@StepClass(3)"><i></i><span><small>03</small>Contact</span></li>
+                <li class="@StepClass(4)"><i></i><span><small>04</small>Destination approach</span></li>
+            </ol>
+            <div class="travel-route-mini"><b>@_snapshot.Route.Origin</b><span></span><b>@_snapshot.Route.Destination</b><small>@_snapshot.Route.DurationHours h baseline · @_snapshot.Route.DelayHours h delay</small></div>
+        </aside>
+
+        <main class="travel-workspace">
+            @if (_commandError is not null) { <div class="operations-error" role="alert"><b>Command not accepted</b><span>@_commandError</span><button @onclick="() => _commandError = null">Dismiss</button></div> }
+
+            @if (_snapshot.Phase == JourneyPhase.DepartureAuthorized)
+            {
+                <section class="travel-stage route-confirmation">
+                    <p>Authorized route / final commit</p><h2>Leave @_snapshot.Route.Origin for @_snapshot.Route.Destination.</h2>
+                    <span>The manifest is locked. This command commits fuel and wear, clears the berth, and changes Wayfarer’s authoritative location to transit.</span>
+                    <span>@_snapshot.Route.Profile</span><div class="route-metrics"><article><small>Baseline</small><b>@_snapshot.Route.DurationHours hours</b><span>@_snapshot.Route.EstimatedArrival</span></article><article><small>Fuel</small><b>−@_snapshot.Route.FuelCost%</b><span>@_snapshot.Ship.FuelPercent% available</span></article><article><small>Drive wear</small><b>+@_snapshot.Route.BaseWear%</b><span>@_snapshot.Ship.DriveWearPercent% current</span></article><article><small>Contact window</small><b>T+@_snapshot.Route.EncounterHour h</b><span>Route-specific deterministic interruption</span></article></div>
+                    <CommandButton Action="_snapshot.BeginAction" Busy="_busy" OnClick="Begin" />
+                </section>
+            }
+            else if (_snapshot.Phase == JourneyPhase.EncounterPending && _snapshot.Encounter is not null)
+            {
+                <section class="travel-stage encounter-stage">
+                    <p>Transit interruption / @_snapshot.Encounter.Source</p><h2>@_snapshot.Encounter.Title</h2><span>@_snapshot.Encounter.Detail</span>
+                    <div class="encounter-signal"><i></i><b>Response required</b><small>Simulation time is paused at this decision. No animation can resolve it.</small></div>
+                    <div class="encounter-responses">
+                        @foreach (JourneyAction action in _snapshot.Encounter.Responses)
+                        {
+                            <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button disabled="@(!action.IsAvailable || _busy)" @onclick="() => Resolve(action.Response!.Value)">Choose response</button></article>
+                        }
+                    </div>
+                </section>
+            }
+            else if (_snapshot.Phase == JourneyPhase.InTransit)
+            {
+                <section class="travel-stage transit-stage">
+                    <p>Transfer orbit / simulation ready</p><h2>@(_snapshot.Encounter is null ? "Commit to the contact window." : $"The contact is resolved. {_snapshot.Route.Destination} is ahead.")</h2><span>@_snapshot.LastOutcome</span>
+                    <div class="orbit-visual" aria-hidden="true"><i class="origin"></i><span><b style="width:@_snapshot.Route.ProgressPercent%"></b></span><i class="destination"></i></div>
+                    @if (_snapshot.Encounter?.Status == "Resolved") { <blockquote><b>@_snapshot.Encounter.Title resolved</b><span>@_snapshot.Encounter.Outcome</span></blockquote> }
+                    <CommandButton Action="_snapshot.AdvanceAction" Busy="_busy" OnClick="Advance" />
+                </section>
+            }
+            else if (_snapshot.Phase == JourneyPhase.Approach)
+            {
+                <section class="travel-stage approach-stage"><p>@_snapshot.Route.Destination approach / berth confirmed</p><h2>The destination lights are in view.</h2><span>@_snapshot.LastOutcome The docking command commits @_snapshot.Route.Destination as Wayfarer’s authoritative station; contract and cargo remain untouched.</span><div class="arrival-readout"><b>@_snapshot.Route.ActualArrival</b><small>@_snapshot.Route.DelayHours h encounter delay · @_snapshot.Contract.HoursRemaining h contract margin</small></div><CommandButton Action="_snapshot.DockAction" Busy="_busy" OnClick="Dock" /></section>
+            }
+            else if (_snapshot.Phase == JourneyPhase.DockedAtOrigin)
+            {
+                <section class="travel-stage approach-stage"><p>Route unavailable</p><h2>The departure manifest is not authorized.</h2><span>Return to station operations to complete the active preparation requirements.</span><a class="journey-link" href="/operations">Open station operations</a></section>
+            }
+            else
+            {
+                <section class="travel-stage approach-stage"><p>Transit inactive</p><h2>Wayfarer is at @_snapshot.LocationLabel.</h2><span>Station services, cargo delivery, or turnaround preparation are ready in operations.</span><a class="journey-link" href="/operations">Open station operations</a></section>
+            }
+        </main>
+
+        <aside class="travel-telemetry" aria-label="Wayfarer telemetry">
+            <div class="travel-commander"><span>@_snapshot.Commander.Initials</span><p><b>@_snapshot.Commander.DisplayName</b><small>Independent hauler</small></p></div>
+            <section><p>Route progress</p><div class="travel-meter"><span style="width:@_snapshot.Route.ProgressPercent%"></span></div><b>@_snapshot.Route.ElapsedHours / @_snapshot.Route.DurationHours h</b><small>@_snapshot.Route.ProgressPercent% baseline complete</small></section>
+            <section class="telemetry-grid"><div><small>Fuel</small><b>@_snapshot.Ship.FuelPercent%</b></div><div><small>Wear</small><b>@_snapshot.Ship.DriveWearPercent%</b></div><div><small>Cargo</small><b>@_snapshot.Ship.CargoLoaded t</b></div><div><small>Credits</small><b>@Credits(_snapshot.Finances.Credits)</b></div></section>
+            <section><p>Contract clock</p><b>@_snapshot.Contract.HoursRemaining h remaining</b><small>@_snapshot.Contract.DeadlineLabel</small></section><section><p>Persistent exposure</p><b>@Credits(_snapshot.LienPrincipal) lien</b><small>Legal exposure @_snapshot.LegalExposure · commercial trust @_snapshot.Finances.CommercialTrust</small></section>
+            <footer><span>@_snapshot.ContentPackVersion</span><span>Schema @_snapshot.SchemaVersion</span><span>Cmd @_snapshot.CommandSequence</span></footer>
+        </aside>
+    }
+</section>
+
+@code {
+    private IJSObjectReference? _profile;
+    private JourneySnapshot? _snapshot;
+    private string? _playerKey;
+    private string? _loadError;
+    private string? _commandError;
+    private bool _busy;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _profile = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/browser-profile.js");
+        _playerKey = await _profile.InvokeAsync<string>("getOrCreatePlayerKey");
+        Apply(await Journey.ResumeAsync(_playerKey), load: true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task Begin() => Run(() => Journey.BeginVoyageAsync(_playerKey!));
+    private Task Advance() => Run(() => Journey.AdvanceVoyageAsync(_playerKey!));
+    private Task Resolve(EncounterResponse response) => Run(() => Journey.ResolveCurrentEncounterAsync(_playerKey!, response));
+    private async Task Dock() { await Run(() => Journey.ArriveAsync(_playerKey!)); if (_snapshot?.Phase == JourneyPhase.Docked) Navigation.NavigateTo("/operations"); }
+    private async Task Run(Func<ValueTask<CommandResult<JourneySnapshot>>> command) { if (_busy || _playerKey is null) return; _busy = true; _commandError = null; Apply(await command(), load: false); _busy = false; }
+    private void Apply(CommandResult<JourneySnapshot> result, bool load) { if (result.IsSuccess) _snapshot = result.Value; else if (load) _loadError = result.Error?.Message; else _commandError = result.Error?.Message; }
+    private string StepClass(int step) { if (_snapshot is null) return ""; int active = _snapshot.Phase switch { JourneyPhase.DepartureAuthorized => 1, JourneyPhase.InTransit => _snapshot.Encounter is null ? 2 : 4, JourneyPhase.EncounterPending => 3, JourneyPhase.Approach => 4, _ => 5 }; return step < active ? "complete" : step == active ? "active" : ""; }
+    private static string Credits(long value) => $"{value:N0} cr";
+    public async ValueTask DisposeAsync() { if (_profile is null) return; try { await _profile.DisposeAsync(); } catch (JSDisconnectedException) { } }
+}

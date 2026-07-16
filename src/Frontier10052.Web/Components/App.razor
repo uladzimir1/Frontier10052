@@ -5,10 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
-    <HeadOutlet />
+    <link rel="icon" type="image/webp" href="assets/cinematic/galaxy-reveal.webp" />
+    <meta name="theme-color" content="#020407" />
+    <meta name="description" content="Frontier 10052 is a hard-science-fiction trading, crew, and civilization simulation." />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
 </body>
 </html>
