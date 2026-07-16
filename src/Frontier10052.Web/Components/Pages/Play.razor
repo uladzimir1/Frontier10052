@@ -97,10 +97,11 @@
                         break;
                     case "settings":
                         <div class="settings-list">
-                            <label><span>Reduced camera motion<small>Use crossfades instead of cinematic travel.</small></span><input type="checkbox" @bind="_reducedMotion" /></label>
-                            <label><span>High contrast<small>Strengthen type, focus, and interface boundaries.</small></span><input type="checkbox" @bind="_highContrast" /></label>
-                            <label><span>Subtitle speaker labels<small>Identify radio and crew dialogue sources.</small></span><input type="checkbox" @bind="_speakerLabels" /></label>
-                            <label><span>Scene quality<small>Changes image and real-time scene detail.</small></span><select @bind="_quality"><option>Automatic</option><option>High</option><option>Balanced</option><option>Low bandwidth</option></select></label>
+                            <label><span>Reduced camera motion<small>Use authored static cuts without travel, parallax, or autoscroll.</small></span><input type="checkbox" @bind="_reducedMotion" @bind:after="SavePreferencesAsync" /></label>
+                            <label><span>High contrast<small>Strengthen type, focus, and interface boundaries.</small></span><input type="checkbox" @bind="_highContrast" @bind:after="SavePreferencesAsync" /></label>
+                            <label><span>Captions<small>Show scene and radio captions over travel cinematics.</small></span><input type="checkbox" @bind="_captions" @bind:after="SavePreferencesAsync" /></label>
+                            <label><span>Subtitle speaker labels<small>Identify radio and crew dialogue sources.</small></span><input type="checkbox" @bind="_speakerLabels" @bind:after="SavePreferencesAsync" /></label>
+                            <label><span>Scene quality<small>Automatic, High, Balanced, or static low-bandwidth plates.</small></span><select @bind="_quality" @bind:after="SavePreferencesAsync"><option>Automatic</option><option>High</option><option>Balanced</option><option>Low bandwidth</option></select></label>
                         </div>
                         break;
                     case "news":
@@ -147,6 +148,7 @@
     private string _quality = "Automatic";
     private bool _reducedMotion;
     private bool _highContrast;
+    private bool _captions = true;
     private bool _speakerLabels = true;
     private bool _overwriteConfirmed;
     private bool _busy;
@@ -185,6 +187,12 @@
         _cinematicModule = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/cinematic.js");
         _profileModule = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/browser-profile.js");
         await _cinematicModule.InvokeVoidAsync("initializeLauncher", _root);
+        CinematicPreferences preferences = await _profileModule.InvokeAsync<CinematicPreferences>("getCinematicPreferences");
+        _quality = preferences.Quality;
+        _reducedMotion = preferences.ReducedCameraMotion;
+        _highContrast = preferences.HighContrast;
+        _captions = preferences.Captions;
+        _speakerLabels = preferences.SpeakerLabels;
         _playerKey = await _profileModule.InvokeAsync<string>("getOrCreatePlayerKey");
         _snapshot = await LauncherQuery.GetAsync(_playerKey);
         await InvokeAsync(StateHasChanged);
@@ -198,6 +206,13 @@
     }
 
     private void ClosePanel() => _activePanel = null;
+
+    private async Task SavePreferencesAsync()
+    {
+        if (_profileModule is null) return;
+        CinematicPreferences preferences = new(_quality, _reducedMotion, _highContrast, _captions, _speakerLabels);
+        await _profileModule.InvokeVoidAsync("saveCinematicPreferences", preferences);
+    }
 
     private void ContinueJourney() => Navigation.NavigateTo(_snapshot?.ContinuePath ?? "/operations");
 

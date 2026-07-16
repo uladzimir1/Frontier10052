@@ -8,6 +8,7 @@ AAA-aspirational hard-science-fiction trading, exploration, crew, and civilizati
 - Living-station scroll story and interactive one-minute concept trailer
 - Docked-ship launcher with commander, crew, cargo, news, patch, and settings states
 - Archival crew dossiers with generated documentary portraits, stable crew identity, and reduced-motion-aware scan and depth effects across launcher, operations, travel, arrivals, and Sirius decisions
+- Scroll-driven travel cinematics for Earth, Mars, Ceres, Pluto, and Sirius with locally bundled Three.js, procedural space environments, optimized modular GLBs, static WebP fallbacks, and Play/Pause/Skip/Replay controls
 - Deterministic Earth-to-Mars first-contract onboarding with crew briefing, contract cargo, conflicting market reports, optional trading, engineer assignment, and departure authorization
 - Mars turnaround with an inherited lien, refueling, provenance-aware repairs, crew rest, and mutually exclusive Pluto/Ceres contracts
 - Deterministic route-specific crises and destination settlement with persistent crew memories, faction standing, legal exposure, debt, maintenance, and journey history
@@ -38,6 +39,19 @@ dotnet run --project src/Frontier10052.Web
 Then open the HTTPS URL printed by ASP.NET Core.
 
 The browser stores only the anonymous selector key `frontier10052:player:v1`; authoritative journey state remains server-side. Set `Frontier10052__SavesDirectory` to choose the save directory. Local runs default to the ignored `src/Frontier10052.Web/App_Data/saves` directory, while the runtime container uses its owned `/data` path.
+
+The browser also stores presentation preferences and per-cue seen keys. Those
+values control quality, accessibility, and replay state only; they never advance
+time, spend resources, increment the command sequence, or write a save.
+
+Rebuild and validate the committed cinematic assets with:
+
+```bash
+cd tools/cinematic
+npm ci
+npm test
+npm run build
+```
 
 ## Solution boundaries
 

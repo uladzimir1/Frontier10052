@@ -5,6 +5,8 @@
 .vscode
 **/bin
 **/obj
+**/node_modules
+tools/cinematic/.build
 *.user
 *.suo
 .DS_Store

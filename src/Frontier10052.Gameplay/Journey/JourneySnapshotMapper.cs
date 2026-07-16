@@ -86,7 +86,7 @@ internal static class JourneySnapshotMapper
             new CommanderJourneyPresentation($"Cmdr. {callsign}", initials),
             new ShipJourneyPresentation(pack.Text(pack.Ship.NameKey), pack.Text(pack.Ship.HullKey), state.CargoLoaded.Value, state.Ship.CargoCapacity.Value, state.Ship.FuelPercent, state.Ship.DriveWearPercent, state.Ship.PinchReserve),
             new RoutePresentation(definition.Id.Value, pack.Text(definition.NameKey), pack.Text(origin.NameKey), pack.Text(destination.NameKey), duration, fuelCost, definition.DriveWearPercent, route?.EncounterAtHour ?? definition.EncounterAtHour, elapsed, delay, estimated, actual, progress, pack.Text(definition.ProfileKey), route?.PinchCost ?? definition.PinchCost, route?.UsesCheckpoints ?? definition.Checkpoints is { Count: > 0 }),
-            MapEncounter(state, pack),
+            MapEncounter(state, definition, pack),
             cargo,
             bids,
             sales,
@@ -108,7 +108,8 @@ internal static class JourneySnapshotMapper
             state.SiriusCustoms is null ? null : new SiriusCustomsPresentation(state.SiriusCustoms.Cleared, state.SiriusCustoms.DelayHours, pack.Text(pack.Stations.Single(item => item.Id == state.SiriusCustoms.OriginStationId).NameKey), state.SiriusCustoms.Outcome),
             new JourneyAction("sirius-customs", "Clear Sirius customs", "Authoritative delay from origin and legal exposure · Noor fatigue is half rounded up", journey.Phase == JourneyPhase.CustomsPending && state.SiriusCustoms?.Cleared != true, state.SiriusCustoms?.Cleared == true ? "Customs clearance is already committed." : journey.Phase == JourneyPhase.CustomsPending ? "Wayfarer is docked in the customs concourse." : "Customs opens after the Sirius approach is docked."),
             new JourneyAction("settle-information", "Settle information contract", "Outcome depends on disposition and deadline equality", journey.Phase == JourneyPhase.Docked && state.SiriusCustoms?.Cleared == true && state.InformationSettlement is null, state.InformationSettlement is not null ? "The Sirius information case is already settled." : state.SiriusCustoms?.Cleared == true ? "Information custody is ready for final settlement." : "Clear customs before settlement."),
-            state.InformationSettlement is null ? null : new InformationSettlementPresentation(state.InformationSettlement.Disposition.ToString(), state.InformationSettlement.OnTime, state.InformationSettlement.Payment.Value, state.InformationSettlement.Claim.Value, state.InformationSettlement.CapitalizedClaim.Value, state.InformationSettlement.Outcome));
+            state.InformationSettlement is null ? null : new InformationSettlementPresentation(state.InformationSettlement.Disposition.ToString(), state.InformationSettlement.OnTime, state.InformationSettlement.Payment.Value, state.InformationSettlement.Claim.Value, state.InformationSettlement.CapitalizedClaim.Value, state.InformationSettlement.Outcome),
+            CinematicPresentationMapper.MapCurrent(state, journey, definition, pack));
     }
 
     private static RouteDefinition ResolveRoute(GameState state, JourneyState journey, VerticalSliceContentPack pack)
@@ -118,7 +119,7 @@ internal static class JourneySnapshotMapper
         return pack.Routes.Single(item => item.OriginStationId == state.Contract.OriginStationId && item.DestinationStationId == state.Contract.DestinationStationId);
     }
 
-    private static EncounterPresentation? MapEncounter(GameState state, VerticalSliceContentPack pack)
+    private static EncounterPresentation? MapEncounter(GameState state, RouteDefinition route, VerticalSliceContentPack pack)
     {
         EncounterState? encounter = state.Journey?.Encounter;
         if (encounter is null) return null;
@@ -152,7 +153,15 @@ internal static class JourneySnapshotMapper
                 Response(EncounterResponse.PirateHardBurn, "Run for the patrol boundary", "−4% fuel · +3% wear", HasCrew(state, "mara-venn") && state.Ship.FuelPercent >= 4 && state.Ship.DriveWearPercent <= 97, "Requires Mara, fuel, and drive margin."),
             ],
         };
-        return new EncounterPresentation(encounter.Id.Value, pack.Text(definition.TitleKey), pack.Text(definition.DetailKey), pack.Text(definition.SourceKey), encounter.Status.ToString(), LocalizeOutcome(encounter.Outcome, pack), responses);
+        return new EncounterPresentation(
+            encounter.Id.Value,
+            pack.Text(definition.TitleKey),
+            pack.Text(definition.DetailKey),
+            pack.Text(definition.SourceKey),
+            encounter.Status.ToString(),
+            LocalizeOutcome(encounter.Outcome, pack),
+            responses,
+            CinematicPresentationMapper.MapEncounter(state, route, encounter, pack));
     }
 
     private static IReadOnlyList<CheckpointPresentation> MapCheckpoints(GameState state, RouteDefinition route, VerticalSliceContentPack pack)
@@ -172,7 +181,8 @@ internal static class JourneySnapshotMapper
                 checkpoint.Status.ToString(),
                 checkpoint.Outcome,
                 responses,
-                checkpoint.Id == next?.Id);
+                checkpoint.Id == next?.Id,
+                CinematicPresentationMapper.MapCheckpoint(state, route, checkpoint, pack));
         }).ToArray();
     }
 

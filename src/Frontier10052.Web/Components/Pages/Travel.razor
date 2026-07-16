@@ -5,9 +5,9 @@
 @inject NavigationManager Navigation
 
 <PageTitle>@(_snapshot is null ? "Active Transit — Frontier 10052" : $"{_snapshot.Route.Origin}–{_snapshot.Route.Destination} Transit — Frontier 10052")</PageTitle>
-<HeadContent><meta name="description" content="Follow Wayfarer's active content-driven route, resolve its deterministic encounter, and commit arrival at the contract destination." /></HeadContent>
+<HeadContent><meta name="description" content="Scrub, play, pause, skip, and replay Wayfarer's authoritative campaign travel without changing simulation state." /></HeadContent>
 
-<section class="travel-shell phase-@(_snapshot?.Phase.ToString().ToLowerInvariant())" aria-labelledby="travel-title">
+<section class="travel-shell phase-@(_snapshot?.Phase.ToString().ToLowerInvariant()) @(_preferences.HighContrast ? "high-contrast" : null) @(_preferences.ReducedCameraMotion ? "reduce-motion" : null)" aria-labelledby="travel-title">
     <img class="travel-background" src="assets/cinematic/solar-pullback.webp" alt="" fetchpriority="high" />
     <div class="travel-shade" aria-hidden="true"></div>
     <header class="travel-topbar">
@@ -17,7 +17,7 @@
 
     @if (_snapshot is null && _loadError is null)
     {
-        <div class="travel-loading" role="status"><b>Reading flight state</b><span>Validating route, manifest, and simulation clock…</span></div>
+        <div class="travel-loading" role="status"><b>Reading flight state</b><span>Validating route, manifest, cinematic cue, and simulation clock…</span></div>
     }
     else if (_snapshot is null)
     {
@@ -60,75 +60,120 @@
                 }
             </section>
 
-            @if (_snapshot.Phase == JourneyPhase.DepartureAuthorized)
+            @if (_activeCinematic is not null)
             {
-                <section class="travel-stage route-confirmation">
-                    <p>Authorized route / final commit</p><h2>Leave @_snapshot.Route.Origin for @_snapshot.Route.Destination.</h2>
-                    <span>The manifest is locked. This command commits the T+2 undock only on Sirius routes; later resources remain atomic at the gravity boundary.</span>
-                    <span>@_snapshot.Route.Profile</span><div class="route-metrics"><article><small>Baseline</small><b>@_snapshot.Route.DurationHours hours</b><span>@_snapshot.Route.EstimatedArrival</span></article><article><small>Fuel</small><b>−@_snapshot.Route.FuelCost%</b><span>@_snapshot.Ship.FuelPercent% available</span></article><article><small>Drive wear</small><b>+@_snapshot.Route.BaseWear%</b><span>@_snapshot.Ship.DriveWearPercent% current</span></article><article><small>@(_snapshot.Route.UsesCheckpoints ? "Base pinch" : "Contact window")</small><b>@(_snapshot.Route.UsesCheckpoints ? $"−{_snapshot.Route.PinchCost}" : $"T+{_snapshot.Route.EncounterHour} h")</b><span>@(_snapshot.Route.UsesCheckpoints ? $"{_snapshot.Ship.PinchReserve} reserve aboard" : "Route-specific deterministic interruption")</span></article></div>
-                    <CommandButton Action="_snapshot.BeginAction" Busy="_busy" OnClick="Begin" />
-                </section>
-            }
-            else if (_snapshot.Phase == JourneyPhase.EncounterPending && _snapshot.Encounter is not null)
-            {
-                <section class="travel-stage encounter-stage">
-                    <p>Transit interruption / @_snapshot.Encounter.Source</p><h2>@_snapshot.Encounter.Title</h2><span>@_snapshot.Encounter.Detail</span>
-                    <div class="encounter-signal"><i></i><b>Response required</b><small>Simulation time is paused at this decision. No animation can resolve it.</small></div>
-                    <div class="encounter-responses">
-                        @foreach (JourneyAction action in _snapshot.Encounter.Responses)
+                <section class="journey-cinematic-timeline"
+                         style="--cinematic-scroll-vh: @_activeCinematic.ScrollLengthVh"
+                         data-cinematic-root
+                         @ref="_cinematicRoot"
+                         aria-label="@StageLabel(_activeCinematic.Stage) cinematic">
+                    <div class="journey-cinematic-sticky">
+                        <canvas data-cinematic-canvas aria-hidden="true"></canvas>
+                        <img data-cinematic-fallback src="@_activeCinematic.FallbackPlate" alt="" aria-hidden="true" />
+                        <div class="cinematic-vignette" aria-hidden="true"></div>
+                        <header class="cinematic-scene-heading">
+                            <p>@_activeCinematic.Environment / @StageLabel(_activeCinematic.Stage)</p>
+                            <h2>@SceneTitle(_activeCinematic)</h2>
+                            <span>@_activeCinematic.RouteId · command @_activeCinematic.CommandSequence</span>
+                        </header>
+                        <div class="cinematic-caption" hidden="@(!_preferences.Captions)">
+                            @if (_preferences.SpeakerLabels) { <b>Wayfarer flight recorder</b> }
+                            <p data-cinematic-caption>@_activeCinematic.Caption</p>
+                        </div>
+                        <div class="cinematic-player" role="group" aria-label="Cinematic playback controls">
+                            <button type="button" data-cinematic-play>Play</button>
+                            <button type="button" data-cinematic-skip>Skip</button>
+                            <button type="button" data-cinematic-replay>Replay</button>
+                            <label>Quality
+                                <select data-cinematic-quality value="@_preferences.Quality" @onchange="QualityChangedAsync" aria-label="Cinematic quality">
+                                    <option>Automatic</option><option>High</option><option>Balanced</option><option>Low bandwidth</option>
+                                </select>
+                            </label>
+                            <div class="cinematic-progress-track" aria-hidden="true"><span data-cinematic-progress></span></div>
+                            <output data-cinematic-progress-text aria-live="polite">Scene 0%</output>
+                            <output data-cinematic-state aria-live="polite">@_cinematicStatus</output>
+                        </div>
+                        <details class="cinematic-transcript">
+                            <summary>Scene transcript</summary>
+                            <p><b>@(_preferences.SpeakerLabels ? "Wayfarer flight recorder: " : null)</b>@_activeCinematic.Caption</p>
+                            <p>Presentation-only scene. Canonical time, resources, money, cargo, saves, and command sequence do not change while it plays.</p>
+                        </details>
+                        @if (_activeCinematic.CueId != _snapshot.Cinematic?.CueId)
                         {
-                            <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button aria-label="Choose @action.Label" disabled="@(!action.IsAvailable || _busy)" @onclick="() => Resolve(action.Response!.Value)">Choose response</button></article>
+                            <button class="cinematic-return-current" type="button" @onclick="ReturnToCurrentCueAsync">Return to current scene</button>
                         }
                     </div>
                 </section>
             }
-            else if (_snapshot.Phase == JourneyPhase.InTransit && _snapshot.Route.UsesCheckpoints)
-            {
-                CheckpointPresentation? checkpoint = (_snapshot.Checkpoints ?? []).FirstOrDefault(item => item.IsNext);
-                <section class="travel-stage checkpoint-stage" tabindex="-1">
-                    <p>Sirius crossing / @(checkpoint?.Kind ?? "checkpoint") / T+@(checkpoint?.ScheduledHour ?? 0)h</p><h2>@(checkpoint?.Title ?? "Route checkpoint")</h2><span>@(checkpoint?.Detail ?? _snapshot.LastOutcome)</span>
-                    <div class="checkpoint-cinematic" aria-label="Presentation-only checkpoint visualization"><i></i><b>WAYFARER // @checkpoint?.Kind</b><small>Replayable presentation · authoritative state already loaded from the save</small></div>
-                    @if (checkpoint?.Responses.Count > 0)
-                    {
+
+            <section class="travel-action-deck" aria-labelledby="travel-action-heading">
+                @if (_snapshot.Phase == JourneyPhase.DepartureAuthorized)
+                {
+                    <section class="travel-stage route-confirmation">
+                        <p>Authorized route / final commit</p><h2 id="travel-action-heading" tabindex="-1">Leave @_snapshot.Route.Origin for @_snapshot.Route.Destination.</h2>
+                        <span>The manifest is locked. The gameplay command commits one authoritative departure step; the scene above only presents its accepted result.</span>
+                        <span>@_snapshot.Route.Profile</span><div class="route-metrics"><article><small>Baseline</small><b>@_snapshot.Route.DurationHours hours</b><span>@_snapshot.Route.EstimatedArrival</span></article><article><small>Fuel</small><b>−@_snapshot.Route.FuelCost%</b><span>@_snapshot.Ship.FuelPercent% available</span></article><article><small>Drive wear</small><b>+@_snapshot.Route.BaseWear%</b><span>@_snapshot.Ship.DriveWearPercent% current</span></article><article><small>@(_snapshot.Route.UsesCheckpoints ? "Base pinch" : "Contact window")</small><b>@(_snapshot.Route.UsesCheckpoints ? $"−{_snapshot.Route.PinchCost}" : $"T+{_snapshot.Route.EncounterHour} h")</b><span>@(_snapshot.Route.UsesCheckpoints ? $"{_snapshot.Ship.PinchReserve} reserve aboard" : "Route-specific deterministic interruption")</span></article></div>
+                        <CommandButton Action="_snapshot.BeginAction" Busy="_busy" OnClick="Begin" />
+                    </section>
+                }
+                else if (_snapshot.Phase == JourneyPhase.EncounterPending && _snapshot.Encounter is not null)
+                {
+                    <section class="travel-stage encounter-stage">
+                        <p>Transit interruption / @_snapshot.Encounter.Source</p><h2 id="travel-action-heading" tabindex="-1">@_snapshot.Encounter.Title</h2><span>@_snapshot.Encounter.Detail</span>
+                        <div class="encounter-signal"><i></i><b>Response required</b><small>Simulation time is paused at this decision. No animation can resolve it.</small></div>
                         <div class="encounter-responses">
-                            @foreach (JourneyAction action in checkpoint.Responses)
+                            @foreach (JourneyAction action in _snapshot.Encounter.Responses)
                             {
-                                <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button aria-label="Choose @action.Label" disabled="@(!action.IsAvailable || _busy)" @onclick="() => ResolveCheckpoint(action.CheckpointResponse)">Choose response</button></article>
+                                <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button aria-label="Choose @action.Label" disabled="@(!action.IsAvailable || _busy)" @onclick="() => Resolve(action.Response!.Value)">Choose response</button></article>
                             }
                         </div>
-                    }
-                    else
-                    {
-                        <CommandButton Action="_snapshot.AdvanceAction" Busy="_busy" OnClick="AdvanceCheckpoint" />
-                    }
-                    @if ((_snapshot.Checkpoints ?? []).Any(item => item.Status == "Resolved"))
-                    {
-                        <details class="checkpoint-journal"><summary>Replay resolved presentations</summary>@foreach (CheckpointPresentation resolved in (_snapshot.Checkpoints ?? []).Where(item => item.Status == "Resolved")) { <button type="button" @onclick="() => _replayCheckpoint = resolved">Replay @resolved.Title</button> }</details>
-                    }
-                    @if (_replayCheckpoint is not null) { <aside class="checkpoint-replay" role="status"><button type="button" aria-label="Close replay" @onclick="() => _replayCheckpoint = null">×</button><small>T+@_replayCheckpoint.ScheduledHour h · presentation replay</small><b>@_replayCheckpoint.Title</b><span>@_replayCheckpoint.Outcome</span></aside> }
-                </section>
-            }
-            else if (_snapshot.Phase == JourneyPhase.InTransit)
-            {
-                <section class="travel-stage transit-stage">
-                    <p>Transfer orbit / simulation ready</p><h2>@(_snapshot.Encounter is null ? "Commit to the contact window." : $"The contact is resolved. {_snapshot.Route.Destination} is ahead.")</h2><span>@_snapshot.LastOutcome</span>
-                    <div class="orbit-visual" aria-hidden="true"><i class="origin"></i><span><b style="width:@_snapshot.Route.ProgressPercent%"></b></span><i class="destination"></i></div>
-                    @if (_snapshot.Encounter?.Status == "Resolved") { <blockquote><b>@_snapshot.Encounter.Title resolved</b><span>@_snapshot.Encounter.Outcome</span></blockquote> }
-                    <CommandButton Action="_snapshot.AdvanceAction" Busy="_busy" OnClick="Advance" />
-                </section>
-            }
-            else if (_snapshot.Phase == JourneyPhase.Approach)
-            {
-                <section class="travel-stage approach-stage"><p>@_snapshot.Route.Destination approach / berth confirmed</p><h2>The destination lights are in view.</h2><span>@_snapshot.LastOutcome The docking command commits @_snapshot.Route.Destination as Wayfarer’s authoritative station; contract and cargo remain untouched.</span><div class="arrival-readout"><b>@_snapshot.Route.ActualArrival</b><small>@_snapshot.Route.DelayHours h encounter delay · @_snapshot.Contract.HoursRemaining h contract margin</small></div><CommandButton Action="_snapshot.DockAction" Busy="_busy" OnClick="Dock" /></section>
-            }
-            else if (_snapshot.Phase == JourneyPhase.DockedAtOrigin)
-            {
-                <section class="travel-stage approach-stage"><p>Route unavailable</p><h2>The departure manifest is not authorized.</h2><span>Return to station operations to complete the active preparation requirements.</span><a class="journey-link" href="/operations">Open station operations</a></section>
-            }
-            else
-            {
-                <section class="travel-stage approach-stage"><p>Transit inactive</p><h2>Wayfarer is at @_snapshot.LocationLabel.</h2><span>Station services, cargo delivery, or turnaround preparation are ready in operations.</span><a class="journey-link" href="/operations">Open station operations</a></section>
-            }
+                    </section>
+                }
+                else if (_snapshot.Phase == JourneyPhase.InTransit && _snapshot.Route.UsesCheckpoints)
+                {
+                    CheckpointPresentation? checkpoint = (_snapshot.Checkpoints ?? []).FirstOrDefault(item => item.IsNext);
+                    <section class="travel-stage checkpoint-stage">
+                        <p>Sirius crossing / @(checkpoint?.Kind ?? "checkpoint") / T+@(checkpoint?.ScheduledHour ?? 0)h</p><h2 id="travel-action-heading" tabindex="-1">@(checkpoint?.Title ?? "Route checkpoint")</h2><span>@(checkpoint?.Detail ?? _snapshot.LastOutcome)</span>
+                        @if (checkpoint?.Responses.Count > 0)
+                        {
+                            <div class="encounter-responses">
+                                @foreach (JourneyAction action in checkpoint.Responses)
+                                {
+                                    <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button aria-label="Choose @action.Label" disabled="@(!action.IsAvailable || _busy)" @onclick="() => ResolveCheckpoint(action.CheckpointResponse)">Choose response</button></article>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <CommandButton Action="_snapshot.AdvanceAction" Busy="_busy" OnClick="AdvanceCheckpoint" />
+                        }
+                        @if ((_snapshot.Checkpoints ?? []).Any(item => item.Status == "Resolved"))
+                        {
+                            <details class="checkpoint-journal"><summary>Replay resolved presentations</summary>@foreach (CheckpointPresentation resolved in (_snapshot.Checkpoints ?? []).Where(item => item.Status == "Resolved")) { <button type="button" @onclick="() => ReplayCheckpointAsync(resolved)">Replay @resolved.Title</button> }</details>
+                        }
+                    </section>
+                }
+                else if (_snapshot.Phase == JourneyPhase.InTransit)
+                {
+                    <section class="travel-stage transit-stage">
+                        <p>Transfer orbit / simulation ready</p><h2 id="travel-action-heading" tabindex="-1">@(_snapshot.Encounter is null ? "Commit to the contact window." : $"The contact is resolved. {_snapshot.Route.Destination} is ahead.")</h2><span>@_snapshot.LastOutcome</span>
+                        @if (_snapshot.Encounter?.Status == "Resolved") { <blockquote><b>@_snapshot.Encounter.Title resolved</b><span>@_snapshot.Encounter.Outcome</span></blockquote> }
+                        <CommandButton Action="_snapshot.AdvanceAction" Busy="_busy" OnClick="Advance" />
+                    </section>
+                }
+                else if (_snapshot.Phase == JourneyPhase.Approach)
+                {
+                    <section class="travel-stage approach-stage"><p>@_snapshot.Route.Destination approach / berth confirmed</p><h2 id="travel-action-heading" tabindex="-1">The destination lights are in view.</h2><span>@_snapshot.LastOutcome The docking command commits arrival before the capture, seal, and handoff scene begins.</span><div class="arrival-readout"><b>@_snapshot.Route.ActualArrival</b><small>@_snapshot.Route.DelayHours h encounter delay · @_snapshot.Contract.HoursRemaining h contract margin</small></div><CommandButton Action="_snapshot.DockAction" Busy="_busy" OnClick="Dock" /></section>
+                }
+                else if (_snapshot.Phase == JourneyPhase.DockedAtOrigin)
+                {
+                    <section class="travel-stage approach-stage"><p>Route unavailable</p><h2 id="travel-action-heading" tabindex="-1">The departure manifest is not authorized.</h2><span>Return to station operations to complete the active preparation requirements.</span><a class="journey-link" href="/operations">Open station operations</a></section>
+                }
+                else
+                {
+                    <section class="travel-stage approach-stage"><p>Transit inactive</p><h2 id="travel-action-heading" tabindex="-1">Wayfarer is at @_snapshot.LocationLabel.</h2><span>@_snapshot.LastOutcome Replay the committed docking handoff above or continue to station operations.</span><a class="journey-link" href="/operations">Open station operations</a></section>
+                }
+            </section>
         </main>
 
         <aside class="travel-telemetry" aria-label="Wayfarer telemetry">
@@ -142,21 +187,53 @@
 </section>
 
 @code {
+    private ElementReference _cinematicRoot;
     private IJSObjectReference? _profile;
+    private IJSObjectReference? _renderer;
+    private DotNetObjectReference<Travel>? _dotNetReference;
     private JourneySnapshot? _snapshot;
+    private CinematicPresentation? _activeCinematic;
+    private CinematicPreferences _preferences = CinematicPreferences.Default;
     private string? _playerKey;
     private string? _loadError;
     private string? _commandError;
+    private string _cinematicStatus = "loading";
     private bool _busy;
-    private CheckpointPresentation? _replayCheckpoint;
+    private bool _rendererInitialized;
+    private bool _syncCinematic;
+    private bool _focusAfterRender;
+    private bool _navigateAfterDocking;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
-        _profile = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/browser-profile.js");
-        _playerKey = await _profile.InvokeAsync<string>("getOrCreatePlayerKey");
-        Apply(await Journey.ResumeAsync(_playerKey), load: true);
-        await InvokeAsync(StateHasChanged);
+        if (firstRender)
+        {
+            _profile = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/browser-profile.js");
+            _renderer = await JavaScript.InvokeAsync<IJSObjectReference>("import", "./js/cinematic-renderer.js");
+            _preferences = await _profile.InvokeAsync<CinematicPreferences>("getCinematicPreferences");
+            _playerKey = await _profile.InvokeAsync<string>("getOrCreatePlayerKey");
+            Apply(await Journey.ResumeAsync(_playerKey), load: true);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (_renderer is not null && _activeCinematic is not null && _snapshot is not null && _syncCinematic)
+        {
+            _dotNetReference ??= DotNetObjectReference.Create(this);
+            if (!_rendererInitialized)
+            {
+                await _renderer.InvokeVoidAsync("initialize", _cinematicRoot, _dotNetReference, new { gameId = _snapshot.GameId, preferences = _preferences });
+                _rendererInitialized = true;
+            }
+            _syncCinematic = false;
+            await _renderer.InvokeVoidAsync("setCue", _cinematicRoot, _activeCinematic, new { gameId = _snapshot.GameId, preferences = _preferences });
+        }
+
+        if (_focusAfterRender && _profile is not null)
+        {
+            _focusAfterRender = false;
+            await _profile.InvokeVoidAsync("focusById", "travel-action-heading");
+        }
     }
 
     private Task Begin() => Run(() => Journey.BeginVoyageAsync(_playerKey!));
@@ -164,10 +241,104 @@
     private Task Resolve(EncounterResponse response) => Run(() => Journey.ResolveCurrentEncounterAsync(_playerKey!, response));
     private Task AdvanceCheckpoint() => Run(() => Journey.ResolveCheckpointAsync(_playerKey!));
     private Task ResolveCheckpoint(CheckpointResponse? response) => Run(() => Journey.ResolveCheckpointAsync(_playerKey!, response));
-    private async Task Dock() { await Run(() => Journey.ArriveAsync(_playerKey!)); if (_snapshot?.Phase is JourneyPhase.Docked or JourneyPhase.CustomsPending) Navigation.NavigateTo("/operations"); }
-    private async Task Run(Func<ValueTask<CommandResult<JourneySnapshot>>> command) { if (_busy || _playerKey is null) return; _busy = true; _commandError = null; Apply(await command(), load: false); _busy = false; }
-    private void Apply(CommandResult<JourneySnapshot> result, bool load) { if (result.IsSuccess) _snapshot = result.Value; else if (load) _loadError = result.Error?.Message; else _commandError = result.Error?.Message; }
+
+    private async Task Dock()
+    {
+        await Run(() => Journey.ArriveAsync(_playerKey!));
+        _navigateAfterDocking = _snapshot?.Phase is JourneyPhase.Docked or JourneyPhase.CustomsPending;
+    }
+
+    private async Task Run(Func<ValueTask<CommandResult<JourneySnapshot>>> command)
+    {
+        if (_busy || _playerKey is null) return;
+        _busy = true;
+        _commandError = null;
+        CommandResult<JourneySnapshot> result = await command();
+        Apply(result, load: false);
+        _busy = false;
+        _focusAfterRender = result.IsSuccess;
+    }
+
+    private void Apply(CommandResult<JourneySnapshot> result, bool load)
+    {
+        if (result.IsSuccess)
+        {
+            _snapshot = result.Value;
+            _activeCinematic = _snapshot?.Cinematic;
+            _syncCinematic = _activeCinematic is not null;
+        }
+        else if (load) _loadError = result.Error?.Message;
+        else _commandError = result.Error?.Message;
+    }
+
+    private Task ReplayCheckpointAsync(CheckpointPresentation checkpoint)
+    {
+        _activeCinematic = checkpoint.Cinematic;
+        _syncCinematic = true;
+        return Task.CompletedTask;
+    }
+
+    private Task ReturnToCurrentCueAsync()
+    {
+        _activeCinematic = _snapshot?.Cinematic;
+        _syncCinematic = _activeCinematic is not null;
+        return Task.CompletedTask;
+    }
+
+    private async Task QualityChangedAsync(ChangeEventArgs args)
+    {
+        string quality = args.Value?.ToString() ?? "Automatic";
+        _preferences = _preferences with { Quality = quality };
+        if (_profile is not null) await _profile.InvokeVoidAsync("saveCinematicPreferences", _preferences);
+        if (_renderer is not null && _rendererInitialized) await _renderer.InvokeVoidAsync("setQuality", _cinematicRoot, quality);
+    }
+
+    [JSInvokable]
+    public Task OnCinematicStateChanged(string state, string cueId) => InvokeAsync(() =>
+    {
+        if (_activeCinematic?.CueId != cueId) return;
+        _cinematicStatus = state;
+        StateHasChanged();
+        if (state == "completed" && _navigateAfterDocking)
+        {
+            _navigateAfterDocking = false;
+            Navigation.NavigateTo("/operations");
+        }
+    });
+
     private string StepClass(int step) { if (_snapshot is null) return ""; int active = _snapshot.Phase switch { JourneyPhase.DepartureAuthorized => 1, JourneyPhase.InTransit => _snapshot.Encounter is null ? 2 : 4, JourneyPhase.EncounterPending => 3, JourneyPhase.Approach => 4, _ => 5 }; return step < active ? "complete" : step == active ? "active" : ""; }
     private static string Credits(long value) => $"{value:N0} cr";
-    public async ValueTask DisposeAsync() { if (_profile is null) return; try { await _profile.DisposeAsync(); } catch (JSDisconnectedException) { } }
+    private static string StageLabel(string stage) => stage.Replace('-', ' ');
+    private static string SceneTitle(CinematicPresentation cue) => cue.Stage switch
+    {
+        "departure-preview" => "The berth is holding.",
+        "clamp-release-undock" => "Wayfarer clears the collar.",
+        "gravity-boundary-burn" => "The metric drive takes the load.",
+        "encounter-arrival" => "A contact breaks the transfer profile.",
+        "response-outcome" => "The decision becomes history.",
+        "delayed-labor-warning" => "The warning arrives late.",
+        "pinch-lattice-drift" => "The lattice falls out of true.",
+        "destination-approach" => "The destination takes shape.",
+        "docking-handoff" => "Capture. Seal. Handoff.",
+        _ => "Wayfarer crosses the dark.",
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetReference?.Dispose();
+        if (_renderer is not null)
+        {
+            try
+            {
+                if (_rendererInitialized) await _renderer.InvokeVoidAsync("dispose", _cinematicRoot);
+                await _renderer.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
+        if (_profile is not null)
+        {
+            try { await _profile.DisposeAsync(); }
+            catch (JSDisconnectedException) { }
+        }
+    }
 }

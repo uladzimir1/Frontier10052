@@ -1,0 +1,169 @@
+{
+  "status": "passed",
+  "versions": {
+    "three": "0.185.1",
+    "esbuild": "0.28.1",
+    "gltfTransform": "4.4.1"
+  },
+  "budgets": {
+    "totalCompressedBytes": 8000000,
+    "individualGlbBytes": 4000000,
+    "rendererBytes": 1500000,
+    "visibleDrawCalls": 120
+  },
+  "coverage": {
+    "environments": [
+      "earth",
+      "mars",
+      "ceres",
+      "pluto",
+      "sirius"
+    ],
+    "routes": [
+      "earth-mars-relief-corridor",
+      "mars-ceres-repair-lane",
+      "mars-pluto-migration-corridor",
+      "ceres-sirius-intelligence-run",
+      "pluto-sirius-intelligence-run"
+    ],
+    "stages": [
+      "departure-preview",
+      "clamp-release-undock",
+      "gravity-boundary-burn",
+      "transfer-montage",
+      "encounter-arrival",
+      "response-outcome",
+      "delayed-labor-warning",
+      "pinch-lattice-drift",
+      "destination-approach",
+      "docking-handoff"
+    ]
+  },
+  "totalBytes": 801670,
+  "estimatedVisibleDrawCalls": 25,
+  "models": [
+    {
+      "path": "assets/cinematic/models/station-earth.glb",
+      "meshes": 6,
+      "primitives": 6,
+      "materials": 4,
+      "textures": 0
+    },
+    {
+      "path": "assets/cinematic/models/station-mars.glb",
+      "meshes": 6,
+      "primitives": 6,
+      "materials": 4,
+      "textures": 0
+    },
+    {
+      "path": "assets/cinematic/models/station-ceres.glb",
+      "meshes": 6,
+      "primitives": 6,
+      "materials": 4,
+      "textures": 0
+    },
+    {
+      "path": "assets/cinematic/models/station-pluto.glb",
+      "meshes": 6,
+      "primitives": 6,
+      "materials": 4,
+      "textures": 0
+    },
+    {
+      "path": "assets/cinematic/models/station-sirius.glb",
+      "meshes": 6,
+      "primitives": 6,
+      "materials": 4,
+      "textures": 0
+    },
+    {
+      "path": "assets/cinematic/models/wayfarer-tern.glb",
+      "meshes": 9,
+      "primitives": 9,
+      "materials": 6,
+      "textures": 0
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/cinematic/plates/earth.webp",
+      "bytes": 24728,
+      "budget": 1000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/models/station-earth.glb",
+      "bytes": 9396,
+      "budget": 4000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/plates/mars.webp",
+      "bytes": 25430,
+      "budget": 1000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/models/station-mars.glb",
+      "bytes": 9316,
+      "budget": 4000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/plates/ceres.webp",
+      "bytes": 20964,
+      "budget": 1000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/models/station-ceres.glb",
+      "bytes": 9480,
+      "budget": 4000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/plates/pluto.webp",
+      "bytes": 22474,
+      "budget": 1000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/models/station-pluto.glb",
+      "bytes": 9460,
+      "budget": 4000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/plates/sirius.webp",
+      "bytes": 21212,
+      "budget": 1000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/models/station-sirius.glb",
+      "bytes": 9416,
+      "budget": 4000000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/models/wayfarer-tern.glb",
+      "bytes": 9976,
+      "budget": 4000000,
+      "valid": true
+    },
+    {
+      "path": "js/cinematic-renderer.js",
+      "bytes": 629246,
+      "budget": 1500000,
+      "valid": true
+    },
+    {
+      "path": "assets/cinematic/ASSET_LICENSES.md",
+      "bytes": 572,
+      "budget": 20000,
+      "valid": true
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "ship": "assets/cinematic/models/wayfarer-tern.glb",
+  "environments": {
+    "earth": {
+      "station": "assets/cinematic/models/station-earth.glb",
+      "plate": "assets/cinematic/plates/earth.webp",
+      "planet": "#2f83b6",
+      "atmosphere": "#bdeaff",
+      "light": "#f2f6ff",
+      "accent": "#d8e8ef"
+    },
+    "mars": {
+      "station": "assets/cinematic/models/station-mars.glb",
+      "plate": "assets/cinematic/plates/mars.webp",
+      "planet": "#9d432c",
+      "atmosphere": "#d99468",
+      "light": "#ffcf9b",
+      "accent": "#e69b58"
+    },
+    "ceres": {
+      "station": "assets/cinematic/models/station-ceres.glb",
+      "plate": "assets/cinematic/plates/ceres.webp",
+      "planet": "#777f82",
+      "atmosphere": "#b4d5db",
+      "light": "#d9e5e7",
+      "accent": "#89b7af"
+    },
+    "pluto": {
+      "station": "assets/cinematic/models/station-pluto.glb",
+      "plate": "assets/cinematic/plates/pluto.webp",
+      "planet": "#8d817a",
+      "atmosphere": "#b8d8e7",
+      "light": "#c7e8ff",
+      "accent": "#87b7d2"
+    },
+    "sirius": {
+      "station": "assets/cinematic/models/station-sirius.glb",
+      "plate": "assets/cinematic/plates/sirius.webp",
+      "planet": "#6d7680",
+      "atmosphere": "#f1f7ff",
+      "light": "#fff8dc",
+      "accent": "#d9efff"
+    }
+  },
+  "routes": {
+    "earth-mars-relief-corridor": ["earth", "mars"],
+    "mars-ceres-repair-lane": ["mars", "ceres"],
+    "mars-pluto-migration-corridor": ["mars", "pluto"],
+    "ceres-sirius-intelligence-run": ["ceres", "sirius"],
+    "pluto-sirius-intelligence-run": ["pluto", "sirius"]
+  },
+  "cameraTracks": {
+    "departure-preview": "berth-orbit",
+    "clamp-release-undock": "collar-clearance",
+    "gravity-boundary-burn": "engine-rear",
+    "transfer-montage": "side-tracking",
+    "encounter-arrival": "contact-wide",
+    "response-outcome": "hull-close",
+    "delayed-labor-warning": "radio-observation",
+    "pinch-lattice-drift": "lattice-orbit",
+    "destination-approach": "station-observation",
+    "docking-handoff": "capture-collar"
+  }
+}

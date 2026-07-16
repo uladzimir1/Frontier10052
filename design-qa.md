@@ -92,6 +92,87 @@
 
 final result: passed
 
+## Scroll-driven cinematic travel system
+
+### Direction and evidence
+
+- Authored Earth fallback plate beside the live WebGL composition:
+  `doc/design/cinematic-travel-comparison.png` (fallback left, live renderer
+  right).
+- Live High-quality WebGL view:
+  `doc/design/cinematic-travel-webgl-1536x1000.png` at 1536 × 1000.
+- Live low-bandwidth fallback view:
+  `doc/design/cinematic-travel-fallback-390x844.png` at exactly 390 × 844.
+- The travel renderer keeps the established near-black aerospace workspace,
+  fine rules, square controls, documentary crew strip, sparse amber/ice signals,
+  and diegetic flight-recorder language. The five environments alter light,
+  station geometry, body treatment, traffic, debris, and atmosphere without
+  introducing dashboard chrome or a separate visual identity.
+
+### Design and runtime findings
+
+- [P1 fixed] A completed scene left the internal workspace at the old action
+  deck; the retained scroll position could complete the next unseen cue during
+  its first render. Cue changes now suppress scroll sampling, establish the new
+  zero/final frame, move to its matching scroll origin, and only then resume
+  scroll input. Old Blazor callbacks are also rejected by cue ID.
+- [P1 fixed] Recreating a WebGL renderer/context on the same canvas for every
+  accepted command could terminate the GPU page under repeated cue changes. The
+  page now retains one renderer while disposing every replaced scene graph,
+  geometry, material, texture, model, and render list; leaving `/travel`
+  disposes the renderer and context.
+- [P2 fixed] The first sticky layout could clip playback controls below the crew
+  watch strip. Desktop and mobile sticky offsets now reserve the actual header
+  and crew heights; Play, Skip, Replay, quality, progress, and state remain in
+  the visible viewport.
+- [P2 fixed] The launcher reduced-motion preference initially stopped the camera
+  but left background drift and four portrait scans running. Reduced mode now
+  has zero running animations, no autoscroll, and an immediate authored final
+  cut while every authoritative action remains available.
+- No unresolved P0, P1, or P2 findings remain. The static plate deliberately
+  simplifies geometry for instant recognition and low transfer cost; the live
+  frame adds the detailed Tern-class ship, station kit, procedural moon,
+  atmosphere, stars, nebula, traffic, dust, and drive treatment while preserving
+  the same composition and hierarchy.
+
+### Interaction, accessibility, and coverage verification
+
+- Play, Pause, Skip, Replay, manual scroll, touch interruption, keyboard
+  interruption, focus restoration, captions, speaker labels, transcript,
+  persistent quality selection, unseen reload, seen reload, and deferred docking
+  navigation were exercised in the live browser.
+- Touch interrupted Play at 3–4%; an unseen reload returned to Scene 0%; a seen
+  reload opened at Scene 100% with Replay available. Reduced playback completed
+  without moving the scroll owner.
+- The static browser matrix rendered 100 route/environment/camera-track
+  combinations across all five routes and ten stages with zero failures. The
+  live WebGL2 lifecycle changed from Mars contact to Ceres lattice drift to
+  Sirius docking, then exercised playback, low-frequency state, resource reuse,
+  and forced context loss.
+- Context loss paused the scene, exposed the static plate, and issued one
+  controlled restoration attempt. The forced SwiftShader loss remained safely
+  on fallback when restoration was unavailable.
+- Mobile viewport, document, and body widths were exactly 390 pixels; all
+  controls remained within the viewport. Desktop and mobile runs reported 0
+  console errors, 0 page errors, and 0 HTTP failures.
+- Presentation actions left the visible authoritative sequence at command 5;
+  integration coverage separately proved unchanged canonical time, credits,
+  fuel, wear, resources, save state, and command sequence.
+
+### Build, asset, and container verification
+
+- Pinned renderer tests passed. Asset validation passed at 0.80 MB total, 25
+  estimated visible draw calls, six readable GLBs, no GLB above 10 KB, five
+  1536 × 1000 WebP plates, complete route/stage references, and recorded
+  licenses.
+- Release formatting completed with no changes. Release build completed with 0
+  warnings and 0 errors. All 98 .NET tests passed locally and in clean Podman
+  and Docker test images.
+- Published Podman and Docker runtime images each returned HTTP 200 for `/`, the
+  bundled cinematic renderer, and generated cinematic assets.
+
+final result: passed
+
 ## Second-contract Mars turnaround extension
 
 ### Evidence
