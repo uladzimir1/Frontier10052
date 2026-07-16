@@ -190,7 +190,7 @@ public sealed class StationOperationsIntegrationTests
         GameSaveEnvelope envelope = (await _store.LoadAsync("atomic")).Value!;
 
         Assert.AreEqual(GameSaveEnvelope.CurrentGameVersion, envelope.GameVersion);
-        Assert.AreEqual("vertical-slice-v3", envelope.ContentPackVersion);
+        Assert.AreEqual("vertical-slice-v4", envelope.ContentPackVersion);
         Assert.AreEqual(GameState.CurrentSchemaVersion, envelope.StateSchemaVersion);
         Assert.AreEqual(10052, envelope.Seed);
         Assert.AreEqual(envelope.State.CommandSequence, envelope.CommandSequence);

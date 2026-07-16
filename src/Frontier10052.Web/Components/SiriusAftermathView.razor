@@ -1,0 +1,156 @@
+@inject ISiriusAftermathService Aftermath
+
+<aside class="operations-rail aftermath-rail" aria-label="Meridian actuator aftermath sections">
+    <p class="rail-kicker">Sirius Meridian · station crisis</p>
+    <h1>Actuator lockout</h1>
+    <span class="rail-sequence">Schema @Snapshot.SchemaVersion · command @Snapshot.CommandSequence</span>
+    <nav>
+        <button class="@(_active == 1 ? "active" : null) complete" @onclick="() => _active = 1"><small>01</small><span>Forecast</span><i></i></button>
+        <button class="@(_active == 2 ? "active" : null) @(Snapshot.Phase != SiriusAftermathPhase.CrewConflict ? "complete" : null)" @onclick="() => _active = 2"><small>02</small><span>Crew hearing</span><i></i></button>
+        <button class="@(_active == 3 ? "active" : null) @(Snapshot.Phase == SiriusAftermathPhase.Resolved ? "complete" : null)" @onclick="() => _active = 3"><small>03</small><span>Allocation</span><i></i></button>
+        <button class="@(_active == 4 ? "active" : null) @(Snapshot.Phase == SiriusAftermathPhase.Resolved ? "complete" : null)" @onclick="() => _active = 4"><small>04</small><span>Future leads</span><i></i></button>
+    </nav>
+    <div class="rail-route"><small>Frozen station market</small><b>@Snapshot.ActuatorUnits actuator units</b><i></i><b>36-unit demand</b><span>@Credits(Snapshot.UnitPrice) per unit · purchase disabled by allocation lockout</span></div>
+</aside>
+
+<main class="operations-workspace sirius-workspace aftermath-workspace">
+    @if (_error is not null)
+    {
+        <div class="operations-error" role="alert"><b>Command not accepted</b><span>@_error</span><button type="button" @onclick="() => _error = null">Dismiss</button></div>
+    }
+
+    @if (_active == 1)
+    {
+        <section class="workspace-section aftermath-forecast" aria-labelledby="aftermath-title">
+            <div class="workspace-heading"><p>01 · Forecast becomes physical</p><h2 id="aftermath-title">@Snapshot.Title</h2><span>@Snapshot.Detail</span></div>
+            <div class="aftermath-supply">
+                <article><small>Available</small><b>@Snapshot.ActuatorUnits</b><span>certified actuator units</span></article>
+                <article><small>Documented demand</small><b>36</b><span>Compact, labor, and Wayfarer combined</span></article>
+                <article><small>Frozen price</small><b>@Credits(Snapshot.UnitPrice)</b><span>non-purchasable until command allocation</span></article>
+                <article><small>Forecast custody</small><b>@Snapshot.ForecastDisposition</b><span>the voyage disposition constrains valid allocations</span></article>
+            </div>
+            <div class="journey-complete"><small>No new contract · no departure</small><h3>The question is who gets twelve.</h3><p>The market listing is frozen and authoritative. Command must resolve the Noor–Tomas conflict before touching allocation.</p><button class="mars-next" type="button" @onclick="() => _active = 2">Open crew hearing</button></div>
+        </section>
+    }
+    else if (_active == 2)
+    {
+        <section class="workspace-section aftermath-hearing" aria-labelledby="hearing-title">
+            <div class="workspace-heading"><p>02 · Noor–Tomas conflict</p><h2 id="hearing-title">Pressure is @Snapshot.ConflictPressure / 100.</h2><span>@Snapshot.ConflictOutcome</span></div>
+            <div class="aftermath-crew-grid">
+                @foreach (AftermathCrewPresentation member in Snapshot.Crew.Where(item => item.Id is "noor-okafor" or "tomas-vale" or "ilya-sato"))
+                {
+                    <article><small>@member.Role · @(member.Available ? "Available" : "Unavailable")</small><h3>@member.Name</h3><dl><div><dt>Loyalty</dt><dd>@member.Loyalty</dd></div><div><dt>Fatigue</dt><dd>@member.Fatigue</dd></div></dl><p>@member.LastMemory</p></article>
+                }
+            </div>
+            @if (Snapshot.Phase == SiriusAftermathPhase.CrewConflict)
+            {
+                <div class="aftermath-actions" aria-label="Crew conflict responses">
+                    @foreach (CrewConflictAction action in Snapshot.ConflictActions)
+                    {
+                        <article><h3>@action.Label</h3><p>@action.Consequence</p><button type="button" disabled="@(!action.IsAvailable || _busy)" @onclick="() => ResolveConflict(action.Response)">@action.Label</button><small>@action.Explanation</small></article>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="journey-complete"><small>@Snapshot.ConflictResponse · pressure @Snapshot.ConflictPressure</small><h3>The hearing is in the permanent record.</h3><p>@Snapshot.ConflictOutcome</p><button class="mars-next" type="button" @onclick="() => _active = 3">Open allocation table</button></div>
+            }
+        </section>
+    }
+    else if (_active == 3)
+    {
+        <section class="workspace-section aftermath-allocation" aria-labelledby="allocation-title">
+            <div class="workspace-heading"><p>03 · Twelve-unit allocation</p><h2 id="allocation-title" tabindex="-1" @ref="_phaseHeading">@(Snapshot.Phase == SiriusAftermathPhase.Resolved ? "Every actuator is accounted for." : "Choose the constituency Wayfarer will strengthen.")</h2><span>@Snapshot.Outcome</span></div>
+            @if (Snapshot.Phase == SiriusAftermathPhase.CrewConflict)
+            {
+                <div class="operations-error" role="status"><b>Allocation locked</b><span>Resolve the crew hearing before allocating the frozen stock.</span><button type="button" @onclick="() => _active = 2">Return to hearing</button></div>
+            }
+            else if (Snapshot.Phase == SiriusAftermathPhase.ActuatorAllocation)
+            {
+                <div class="aftermath-actions allocation-actions" aria-label="Actuator allocation responses">
+                    @foreach (ActuatorAllocationAction action in Snapshot.AllocationActions)
+                    {
+                        <article><h3>@action.Label</h3><p>@action.Consequence</p><button type="button" disabled="@(!action.IsAvailable || _busy)" @onclick="() => ResolveAllocation(action.Response)">@action.Label</button><small>@action.Explanation</small></article>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="allocation-ledger"><article><small>Compact</small><b>@Snapshot.CorporateUnits</b></article><article><small>Labor safety</small><b>@Snapshot.LaborUnits</b></article><article><small>Wayfarer</small><b>@Snapshot.WayfarerUnits</b></article><article><small>Station stock</small><b>@Snapshot.ActuatorUnits</b></article></div>
+                <div class="journey-complete"><small>@Snapshot.Allocation · @Credits(Snapshot.UnitPrice) post-allocation price</small><h3>Wayfarer drive wear is now @Snapshot.DriveWearPercent%.</h3><p>@Snapshot.Outcome</p><button class="mars-next" type="button" @onclick="() => _active = 4">Reveal future leads</button></div>
+            }
+        </section>
+    }
+    else
+    {
+        <section class="workspace-section aftermath-leads" aria-labelledby="leads-title">
+            <div class="workspace-heading"><p>04 · Future leads</p><h2 id="leads-title">Two routes beyond Sirius. Neither is a contract yet.</h2><span>Allocation reveals sponsors, but this slice ends at Meridian Exchange: no acceptance, no fourth voyage, and no travel command.</span></div>
+            <div class="lead-grid">
+                @foreach (OutboundLeadPresentation lead in Snapshot.Leads)
+                {
+                    <article class="@(lead.Available ? "available" : "locked")"><small>@(lead.Available ? "Lead available" : "Lead locked")</small><h3>@lead.Title</h3><p>@lead.Detail</p><span>@(lead.Available ? "Visible for a future content pack · acceptance unavailable" : lead.LockedReason)</span><button type="button" disabled>Contracts not yet open</button></article>
+                }
+            </div>
+            <div class="journey-complete"><small>@Snapshot.ContentPackVersion · schema @Snapshot.SchemaVersion · command @Snapshot.CommandSequence</small><h3>Sirius Meridian Exchange remains Wayfarer’s berth.</h3><p>The crisis resolution, crew memories, actuator repair, market stock, standings, credits, and lead visibility are persistent.</p><a href="/play">Return to launcher</a></div>
+        </section>
+    }
+</main>
+
+<aside class="manifest-panel sirius-manifest aftermath-manifest" aria-label="Meridian aftermath ledger">
+    <section><p>Crisis phase</p><b>@PhaseLabel</b><small>Pressure @Snapshot.ConflictPressure / 100</small></section>
+    <section><p>Actuator market</p><b>@Snapshot.ActuatorUnits / 12 units</b><small>@Credits(Snapshot.UnitPrice) · frozen/non-purchasable</small></section>
+    <section class="manifest-finance"><div><small>Available</small><b>@Credits(Snapshot.Credits)</b></div><div><small>Compact</small><b>@Signed(Snapshot.CompactStanding)</b></div><div><small>Labor</small><b>@Signed(Snapshot.LaborStanding)</b></div></section>
+    <section><p>Wayfarer repair</p><b>@Snapshot.DriveWearPercent% drive wear</b><small>@Snapshot.RepairProvenance</small></section>
+    <section><p>Last consequence</p><small>@Snapshot.Outcome</small></section>
+    <footer><span>@Snapshot.ContentPackVersion</span><span>Schema @Snapshot.SchemaVersion</span><span>Command @Snapshot.CommandSequence</span></footer>
+</aside>
+
+@code {
+    [Parameter, EditorRequired] public SiriusAftermathSnapshot InitialSnapshot { get; set; } = null!;
+    [Parameter, EditorRequired] public string PlayerKey { get; set; } = string.Empty;
+    private SiriusAftermathSnapshot Snapshot { get; set; } = null!;
+    private int _active;
+    private bool _busy;
+    private bool _focusPhase;
+    private string? _error;
+    private ElementReference _phaseHeading;
+    private string PhaseLabel => Snapshot.Phase switch { SiriusAftermathPhase.CrewConflict => "Crew hearing", SiriusAftermathPhase.ActuatorAllocation => "Allocation required", _ => "Future leads revealed" };
+
+    protected override void OnInitialized()
+    {
+        Snapshot = InitialSnapshot;
+        _active = Snapshot.Phase switch { SiriusAftermathPhase.CrewConflict => 1, SiriusAftermathPhase.ActuatorAllocation => 3, _ => 4 };
+    }
+
+    private async Task ResolveConflict(CrewConflictResponse response)
+    {
+        await Run(() => Aftermath.ResolveCrewConflictAsync(PlayerKey, response));
+        if (Snapshot.Phase == SiriusAftermathPhase.ActuatorAllocation) { _active = 3; _focusPhase = true; }
+    }
+
+    private async Task ResolveAllocation(ActuatorAllocationResponse response)
+    {
+        await Run(() => Aftermath.ResolveActuatorAllocationAsync(PlayerKey, response));
+        if (Snapshot.Phase == SiriusAftermathPhase.Resolved) { _active = 3; _focusPhase = true; }
+    }
+
+    private async Task Run(Func<ValueTask<CommandResult<SiriusAftermathSnapshot>>> command)
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+        CommandResult<SiriusAftermathSnapshot> result = await command();
+        _busy = false;
+        if (result.IsSuccess) Snapshot = result.Value!; else _error = result.Error?.Message;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPhase) return;
+        _focusPhase = false;
+        await _phaseHeading.FocusAsync(preventScroll: true);
+    }
+
+    private static string Credits(long value) => $"{value:N0} cr";
+    private static string Signed(int value) => value.ToString("+#;-#;0");
+}

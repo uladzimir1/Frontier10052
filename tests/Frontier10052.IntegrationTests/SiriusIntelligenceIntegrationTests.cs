@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Frontier10052.Domain;
+using Frontier10052.Gameplay.Aftermath;
 using Frontier10052.Gameplay.Journey;
 using Frontier10052.Gameplay.Operations;
 using Frontier10052.Gameplay.Persistence;
@@ -21,6 +22,7 @@ public sealed class SiriusIntelligenceIntegrationTests
     private StationOperationsService _station = null!;
     private TurnaroundService _turnaround = null!;
     private JourneyService _journey = null!;
+    private SiriusAftermathService _aftermath = null!;
 
     [TestInitialize]
     public void Initialize()
@@ -31,6 +33,7 @@ public sealed class SiriusIntelligenceIntegrationTests
         _station = new StationOperationsService(_sessions);
         _turnaround = new TurnaroundService(_sessions);
         _journey = new JourneyService(_sessions);
+        _aftermath = new SiriusAftermathService(_sessions);
     }
 
     [TestCleanup]
@@ -164,6 +167,25 @@ public sealed class SiriusIntelligenceIntegrationTests
         Assert.IsTrue(settled.InformationSettlement!.OnTime);
         AssertSettlementConsequences(origin, message, credits, compact, labor, trust, settled);
         Assert.AreEqual(settled.InformationSettlement, settled.AllJourneyHistory.Single(item => item.VoyageNumber == 3).InformationSettlement);
+        await AssertReloadStableAsync(player);
+
+        Assert.IsNotNull(settled.SiriusAftermath);
+        Assert.AreEqual(12, settled.SiriusAftermath.ActuatorUnits);
+        Assert.AreEqual(1_579, settled.SiriusAftermath.FrozenUnitPrice.Value);
+        CrewConflictResponse hearing = mechanical == CheckpointResponse.IlyaRecalibration ? CrewConflictResponse.JointAudit : CrewConflictResponse.CaptainsOrder;
+        await AcceptedAsync(_aftermath.ResolveCrewConflictAsync(player, hearing));
+        ActuatorAllocationResponse allocation = message switch
+        {
+            CheckpointResponse.PreserveSeal => ActuatorAllocationResponse.CorporatePriority,
+            CheckpointResponse.CorroborateWarning => ActuatorAllocationResponse.AuditedSplit,
+            _ => ActuatorAllocationResponse.LaborSafety,
+        };
+        await AcceptedAsync(_aftermath.ResolveActuatorAllocationAsync(player, allocation));
+        SiriusAftermathSnapshot aftermath = (await _aftermath.ResumeAsync(player)).Value!;
+        Assert.AreEqual(SiriusAftermathPhase.Resolved, aftermath.Phase);
+        Assert.AreEqual(0, aftermath.ActuatorUnits);
+        Assert.AreEqual(12, aftermath.CorporateUnits + aftermath.LaborUnits + aftermath.WayfarerUnits);
+        Assert.AreEqual(1_728, aftermath.UnitPrice);
         await AssertReloadStableAsync(player);
     }
 
@@ -360,8 +382,8 @@ public sealed class SiriusIntelligenceIntegrationTests
 
         TurnaroundSnapshot migrated = (await _turnaround.ResumeAsync(player)).Value!;
         GameState rewritten = await StateAsync(player);
-        Assert.AreEqual(4, rewritten.SchemaVersion);
-        Assert.AreEqual("vertical-slice-v3", migrated.ContentPackVersion);
+        Assert.AreEqual(5, rewritten.SchemaVersion);
+        Assert.AreEqual("vertical-slice-v4", migrated.ContentPackVersion);
         Assert.AreEqual(schema3.CommandSequence, rewritten.CommandSequence);
         Assert.AreEqual(schema3.Time, rewritten.Time);
         Assert.AreEqual(schema3.Money, rewritten.Money);
@@ -388,11 +410,70 @@ public sealed class SiriusIntelligenceIntegrationTests
         {
             await TravelToClearedSiriusAsync(player, "ceres", CheckpointResponse.CorroborateWarning, CheckpointResponse.MaraPinchCorrection);
             await AcceptedAsync(_journey.SettleInformationContractAsync(player));
+            await AcceptedAsync(_aftermath.ResolveCrewConflictAsync(player, CrewConflictResponse.JointAudit));
+            await AcceptedAsync(_aftermath.ResolveActuatorAllocationAsync(player, ActuatorAllocationResponse.AuditedSplit));
         }
 
         GameState first = await StateAsync("sirius-deterministic-a");
         GameState second = await StateAsync("sirius-deterministic-b");
         Assert.AreEqual(GameStateCanonicalizer.Serialize(first), GameStateCanonicalizer.Serialize(second));
+    }
+
+    [TestMethod]
+    public async Task SchemaFourSettledSiriusSaveReceivesFrozenAftermathWithoutAuthorityDrift()
+    {
+        const string player = "schema-four-aftermath";
+        await TravelToClearedSiriusAsync(player, "pluto", CheckpointResponse.CorroborateWarning, CheckpointResponse.IlyaRecalibration);
+        await AcceptedAsync(_journey.SettleInformationContractAsync(player));
+        GameState current = await StateAsync(player);
+        GameState schema4 = current with { SchemaVersion = 4, SiriusAftermath = null };
+        string canonical = GameStateCanonicalizer.Serialize(schema4);
+        string checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+        await _store.SaveAsync(player, new GameSaveEnvelope(GameSaveEnvelope.CurrentGameVersion, "vertical-slice-v3", 4, schema4.Seed, schema4.CommandSequence, checksum, schema4), true);
+
+        SiriusAftermathSnapshot snapshot = (await _aftermath.ResumeAsync(player)).Value!;
+        GameState migrated = await StateAsync(player);
+
+        Assert.AreEqual(5, migrated.SchemaVersion);
+        Assert.AreEqual(schema4.CommandSequence, migrated.CommandSequence);
+        Assert.AreEqual(schema4.Time, migrated.Time);
+        Assert.AreEqual(schema4.Money, migrated.Money);
+        Assert.AreEqual(schema4.Ship, migrated.Ship);
+        Assert.AreEqual(JsonSerializer.Serialize(schema4.Crew), JsonSerializer.Serialize(migrated.Crew));
+        Assert.AreEqual(JsonSerializer.Serialize(schema4.Cargo), JsonSerializer.Serialize(migrated.Cargo));
+        Assert.AreEqual(JsonSerializer.Serialize(schema4.Lien), JsonSerializer.Serialize(migrated.Lien));
+        Assert.AreEqual(SiriusAftermathPhase.CrewConflict, snapshot.Phase);
+        Assert.AreEqual(12, snapshot.ActuatorUnits);
+        Assert.AreEqual(1_579, snapshot.UnitPrice);
+    }
+
+    [TestMethod]
+    public async Task AftermathWrongPhaseInsufficientCashAndRepeatedCommandsAreAtomic()
+    {
+        const string player = "aftermath-atomic";
+        await TravelToClearedSiriusAsync(player, "ceres", CheckpointResponse.CorroborateWarning, CheckpointResponse.IlyaRecalibration);
+        await AcceptedAsync(_journey.SettleInformationContractAsync(player));
+
+        GameState beforeEarlyAllocation = await StateAsync(player);
+        CommandResult<SiriusAftermathSnapshot> early = await _aftermath.ResolveActuatorAllocationAsync(player, ActuatorAllocationResponse.AuditedSplit);
+        Assert.AreEqual(CommandErrorCodes.AftermathWrongPhase, early.Error?.Code);
+        Assert.AreEqual(GameStateCanonicalizer.Serialize(beforeEarlyAllocation), GameStateCanonicalizer.Serialize(await StateAsync(player)));
+
+        await AcceptedAsync(_aftermath.ResolveCrewConflictAsync(player, CrewConflictResponse.CaptainsOrder));
+        await MutateForTestAsync(player, state => state with { Money = new Credits(2_999) });
+        GameState beforeCash = await StateAsync(player);
+        CommandResult<SiriusAftermathSnapshot> cash = await _aftermath.ResolveActuatorAllocationAsync(player, ActuatorAllocationResponse.AuditedSplit);
+        Assert.AreEqual(CommandErrorCodes.AftermathInsufficientCredits, cash.Error?.Code);
+        Assert.AreEqual(GameStateCanonicalizer.Serialize(beforeCash), GameStateCanonicalizer.Serialize(await StateAsync(player)));
+
+        await MutateForTestAsync(player, state => state with { Money = new Credits(3_000) });
+        await AcceptedAsync(_aftermath.ResolveActuatorAllocationAsync(player, ActuatorAllocationResponse.AuditedSplit));
+        GameState resolved = await StateAsync(player);
+        CommandResult<SiriusAftermathSnapshot> repeatedAllocation = await _aftermath.ResolveActuatorAllocationAsync(player, ActuatorAllocationResponse.AuditedSplit);
+        CommandResult<SiriusAftermathSnapshot> repeatedHearing = await _aftermath.ResolveCrewConflictAsync(player, CrewConflictResponse.CaptainsOrder);
+        Assert.AreEqual(CommandErrorCodes.AftermathAlreadyResolved, repeatedAllocation.Error?.Code);
+        Assert.AreEqual(CommandErrorCodes.AftermathAlreadyResolved, repeatedHearing.Error?.Code);
+        Assert.AreEqual(GameStateCanonicalizer.Serialize(resolved), GameStateCanonicalizer.Serialize(await StateAsync(player)));
     }
 
     private async Task TravelToClearedSiriusAsync(string player, string origin, CheckpointResponse message, CheckpointResponse mechanical)

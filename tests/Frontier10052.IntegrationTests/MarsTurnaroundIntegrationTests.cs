@@ -229,7 +229,7 @@ public sealed class MarsTurnaroundIntegrationTests
     }
 
     [TestMethod]
-    public async Task SchemaTwoMigrationPreservesAuthorityAndDerivesSchemaFourState()
+    public async Task SchemaTwoMigrationPreservesAuthorityAndDerivesSchemaFiveState()
     {
         const string player = "schema-two";
         await _station.StartNewGameAsync(player, "Migration Test", false);
@@ -258,8 +258,8 @@ public sealed class MarsTurnaroundIntegrationTests
         GameState rewritten = (await _store.LoadAsync(player)).Value!.State;
 
         Assert.IsNull(ignored);
-        Assert.AreEqual(4, migrated.SchemaVersion);
-        Assert.AreEqual("vertical-slice-v3", migrated.ContentPackVersion);
+        Assert.AreEqual(5, migrated.SchemaVersion);
+        Assert.AreEqual("vertical-slice-v4", migrated.ContentPackVersion);
         Assert.AreEqual(current.CommandSequence, rewritten.CommandSequence);
         Assert.AreEqual(current.Time, rewritten.Time);
         Assert.AreEqual(current.Money, rewritten.Money);

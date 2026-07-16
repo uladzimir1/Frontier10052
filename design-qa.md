@@ -169,3 +169,29 @@ final result: passed
 - Release build completed with 0 warnings and 0 errors. All 80 tests passed locally and inside clean Podman and Docker test images. Published runtime images from both engines returned HTTP 200 for the rendered application; Docker also returned HTTP 200 for `/play`.
 
 final result: passed
+
+## Sirius Meridian actuator aftermath
+
+### Evidence
+
+- Desktop forecast, crew hearing, actuator allocation, and resolved future-lead stages: `doc/design/sirius-aftermath-forecast-1536x1000.png`, `doc/design/sirius-aftermath-hearing-1536x1000.png`, `doc/design/sirius-aftermath-allocation-1536x1000.png`, and `doc/design/sirius-aftermath-leads-1536x1000.png` at 1536 × 1000.
+- Reduced-motion resolved state: `doc/design/sirius-aftermath-leads-390x844.png` at exactly 390 × 844.
+- The full browser matrix played 12 independent voyages through the live UI: both Ceres and Pluto origins, sealed/corroborated/disclosed forecast dispositions, Ilya and Mara mechanical outcomes, and desktop/mobile viewports. Each run continued from Earth through both prior contracts, the Sirius crossing, customs, settlement, hearing, allocation, reload, future leads, and launcher resume.
+
+### Design review findings and fixes
+
+- [P2 fixed] Legacy encounter and Sirius checkpoint choices reused a generic `Choose response` accessible name. Every action now exposes its authored label, so screen-reader and voice-control targets remain distinct throughout all three voyages.
+- [P2 fixed] Launcher continuation originally ended at the information settlement summary. It now persists and reports the real Meridian aftermath phase, conflict pressure, actuator count, Wayfarer repair provenance, revealed leads, crew consequence memory, inherited lien, and Sirius standings.
+- [P2 fixed] Allocation availability needed to communicate disposition, faction, crew, fatigue, and cash requirements before submission. Every disabled option now keeps its exact blocker beside the control, including the audited split's non-capitalizable credit cost.
+- No unresolved P0, P1, or P2 findings remain. The four-stage workspace extends the established full-bleed black station plate, square geometry, sparse ice-blue signal hierarchy, fine-rule progress rail, and persistent manifest ledger without introducing a fourth voyage or generic dashboard treatment.
+
+### Runtime, accessibility, and responsive verification
+
+- Settlement atomically exposed 12 frozen, non-purchasable actuator units against 36 units of demand at 1,579 credits. Every allocation consumed all units and rendered the deterministic zero-stock price of 1,728 credits, exact money/time/standing/trust effects, repair provenance, and one or two future leads according to the selected split.
+- Reloads at the initial aftermath, allocation, and resolved stages restored the exact authoritative phase. Repeated settlement/allocation, wrong-phase, unavailable crew/faction/disposition, and insufficient-credit attempts remained stable atomic rejections in automated coverage.
+- Keyboard traversal began at the skip link and retained the intended visible focus treatment. Both future-lead acceptance controls remained disabled because this slice deliberately ends at Sirius Meridian Exchange.
+- Mobile viewport, document, and body widths were exactly 390 pixels. `prefers-reduced-motion: reduce` was active with zero running animations while all authoritative controls remained available.
+- The 12-case browser matrix completed with 0 console errors, 0 unhandled page errors, and 0 HTTP responses ≥ 400.
+- Release build completed with 0 warnings and 0 errors. All 93 tests passed locally and inside clean Podman and Docker test images. Production images launched successfully through both engines and returned HTTP 200 for `/` and `/operations`.
+
+final result: passed

@@ -81,4 +81,16 @@ public sealed class ValueObjectTests
         Assert.ThrowsExactly<ArgumentException>(() => new RouteId(" "));
         Assert.ThrowsExactly<ArgumentException>(() => new EncounterId(string.Empty));
     }
+
+    [TestMethod]
+    public void StationEventAndOutboundLeadIdentifiersAreTypedAndValidated()
+    {
+        StationEventId stationEvent = new("sirius-meridian-actuator-lockout");
+        ContractLeadId lead = new("scc-procyon-allocation-courier");
+
+        Assert.AreEqual(new StationEventId("sirius-meridian-actuator-lockout"), stationEvent);
+        Assert.AreEqual(new ContractLeadId("scc-procyon-allocation-courier"), lead);
+        Assert.ThrowsExactly<ArgumentException>(() => new StationEventId(" "));
+        Assert.ThrowsExactly<ArgumentException>(() => new ContractLeadId(string.Empty));
+    }
 }

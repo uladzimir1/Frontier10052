@@ -185,7 +185,11 @@ internal static class StationSnapshotMapper
             ImportantConsequences(state),
             CurrentCheckpoint(state),
             state.AllFactionStandings.SingleOrDefault(item => item.FactionId == FactionIds.SiriusCorporateCompact)?.Standing ?? 0,
-            state.AllFactionStandings.SingleOrDefault(item => item.FactionId == FactionIds.SiriusLabor)?.Standing ?? 0);
+            state.AllFactionStandings.SingleOrDefault(item => item.FactionId == FactionIds.SiriusLabor)?.Standing ?? 0,
+            state.SiriusAftermath?.Phase.ToString() ?? "Unavailable",
+            state.SiriusAftermath?.CrewConflict.Pressure ?? 0,
+            state.SiriusAftermath?.ActuatorUnits ?? 0,
+            state.SiriusAftermath is null ? "No leads revealed" : string.Join(" · ", state.SiriusAftermath.Leads.Select(item => $"{item.Id.Value}: {(item.Available ? "available" : "locked")}")));
     }
 
     public static string FormatReportDecision(ReportDecision decision) => decision switch
@@ -224,6 +228,7 @@ internal static class StationSnapshotMapper
 
     private static string CurrentCheckpoint(GameState state)
     {
+        if (state.SiriusAftermath is not null) return $"Meridian aftermath · {state.SiriusAftermath.Phase}";
         RouteCheckpointState? next = state.Journey?.Route?.AllCheckpoints.FirstOrDefault(item => item.Status == CheckpointResolutionStatus.Pending);
         return next is null ? state.Journey?.Phase.ToString() ?? "Docked" : $"{next.Kind} · T+{next.ScheduledHour}h";
     }

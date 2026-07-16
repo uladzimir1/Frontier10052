@@ -3,6 +3,7 @@
 @inject IStationOperationsService StationOperations
 @inject IJourneyService Journey
 @inject ITurnaroundService Turnaround
+@inject ISiriusAftermathService Aftermath
 @inject IJSRuntime JavaScript
 
 <PageTitle>@(_snapshot is null ? "Station Operations — Frontier 10052" : $"{_snapshot.LocationName} Operations — Frontier 10052")</PageTitle>
@@ -29,11 +30,15 @@
     {
         <MarsTurnaroundView InitialSnapshot="_turnaround" PlayerKey="@_playerKey" />
     }
+    else if (_aftermath is not null && _playerKey is not null)
+    {
+        <SiriusAftermathView InitialSnapshot="_aftermath" PlayerKey="@_playerKey" />
+    }
     else if (_snapshot?.IsDestinationOperations == true && _journey is not null && _playerKey is not null)
     {
         @if (_journey.VoyageNumber == 3)
         {
-            <SiriusSettlementView InitialSnapshot="_journey" PlayerKey="@_playerKey" />
+            <SiriusSettlementView InitialSnapshot="_journey" PlayerKey="@_playerKey" OnInformationSettled="ReloadStationAsync" />
         }
         else
         {
@@ -241,6 +246,7 @@
     private StationOperationsSnapshot? _snapshot;
     private JourneySnapshot? _journey;
     private TurnaroundSnapshot? _turnaround;
+    private SiriusAftermathSnapshot? _aftermath;
     private string? _playerKey;
     private string? _loadError;
     private string? _commandError;
@@ -292,6 +298,7 @@
             _snapshot = result.Value;
             _journey = null;
             _turnaround = null;
+            _aftermath = null;
             if (_snapshot?.IsTurnaround == true)
             {
                 CommandResult<TurnaroundSnapshot> turnaroundResult = await Turnaround.ResumeAsync(_playerKey);
@@ -303,6 +310,12 @@
                 CommandResult<JourneySnapshot> journeyResult = await Journey.ResumeAsync(_playerKey);
                 if (journeyResult.IsSuccess) _journey = journeyResult.Value;
                 else _loadError = journeyResult.Error?.Message;
+                if (_journey?.InformationSettlement is not null)
+                {
+                    CommandResult<SiriusAftermathSnapshot> aftermathResult = await Aftermath.ResumeAsync(_playerKey);
+                    if (aftermathResult.IsSuccess) _aftermath = aftermathResult.Value;
+                    else _loadError = aftermathResult.Error?.Message;
+                }
             }
             if (_snapshot?.Departure.Authorized == true) _activeSection = 5;
         }

@@ -111,8 +111,8 @@ public sealed class JourneyIntegrationTests
         JourneySnapshot migrated = (await _journey.ResumeAsync(player)).Value!;
         GameSaveEnvelope rewritten = (await _store.LoadAsync(player)).Value!;
 
-        Assert.AreEqual(4, rewritten.StateSchemaVersion);
-        Assert.AreEqual("vertical-slice-v3", rewritten.ContentPackVersion);
+        Assert.AreEqual(5, rewritten.StateSchemaVersion);
+        Assert.AreEqual("vertical-slice-v4", rewritten.ContentPackVersion);
         Assert.AreEqual(current.CommandSequence, migrated.CommandSequence);
         Assert.AreEqual(current.Time, rewritten.State.Time);
         Assert.AreEqual(current.DepartureManifest?.AuthorizedAtCommandSequence, rewritten.State.DepartureManifest?.AuthorizedAtCommandSequence);

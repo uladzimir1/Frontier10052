@@ -11,7 +11,8 @@ AAA-aspirational hard-science-fiction trading, exploration, crew, and civilizati
 - Mars turnaround with an inherited lien, refueling, provenance-aware repairs, crew rest, and mutually exclusive Pluto/Ceres contracts
 - Deterministic route-specific crises and destination settlement with persistent crew memories, faction standing, legal exposure, debt, maintenance, and journey history
 - First interstellar crossing from the actual Ceres or Pluto settlement, with metric-drive pinch reserve, provenance-bearing information cargo, five ordered route checkpoints, a corporate labor conflict, Sirius customs, and persistent settlement
-- Browser-owned local journeys backed by schema-4, checksummed, atomic server-side JSON saves with deterministic schema-1, schema-2, and schema-3 migration
+- Sirius Meridian aftermath where the forecast becomes a frozen 12-of-36 actuator shortage, Noor and Tomas contest the response, Wayfarer allocates every unit, and two non-accepting future leads persist
+- Browser-owned local journeys backed by schema-5, checksummed, atomic server-side JSON saves with deterministic schema-1 through schema-4 migration
 - Responsive editorial routes for the universe, factions, map, ships, colonies, crew, lore, roadmap, and community
 - .NET 10 Blazor Web App foundation
 
@@ -47,7 +48,7 @@ Content --------------------------> Domain
 Infrastructure -> Gameplay and Domain contracts
 ```
 
-The automated test projects cover typed domain values, deterministic pricing and state, content validation, station operations, persistence, corrupt-save recovery, all 12 Sirius origin/message/mechanical combinations, migration, customs, deadline boundaries, settlement, and cross-boundary composition. Run them locally with:
+The automated test projects cover typed domain values, deterministic pricing and state, content validation, station operations, persistence, corrupt-save recovery, all 12 Sirius origin/message/mechanical combinations, schema-1 through schema-4 migration, customs, settlement, crew-conflict pressure, every surfaced actuator allocation, repair provenance, future-lead visibility, rejected-command atomicity, and canonical determinism. Run them locally with:
 
 ```bash
 dotnet test Frontier10052.slnx

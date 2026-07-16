@@ -600,7 +600,11 @@ public static class JourneyCommands
         });
     }
 
-    public static CommandResult<GameState> SettleInformationContract(GameState state)
+    public static CommandResult<GameState> SettleInformationContract(
+        GameState state,
+        StationEventId aftermathEventId,
+        CommodityId actuatorId,
+        IReadOnlyList<ContractLeadId> leadIds)
     {
         if (state.InformationSettlement is not null)
             return Fail(CommandErrorCodes.SettlementAlreadyComplete, "The Sirius information contract is already settled.");
@@ -690,7 +694,7 @@ public static class JourneyCommands
             ? item with { DeliveredAt = state.Time, InformationSettlement = settlement, Outcome = outcome }
             : item).ToArray();
 
-        return Success(state with
+        GameState settled = state with
         {
             Money = money,
             Lien = lien,
@@ -704,7 +708,8 @@ public static class JourneyCommands
             JourneyHistory = histories,
             Turnaround = null,
             Journey = journey with { Phase = JourneyPhase.Delivered, LastOutcome = outcome },
-        });
+        };
+        return Success(SiriusAftermathCommands.CreateAftermath(settled, aftermathEventId, actuatorId, leadIds));
     }
 
     public static EncounterId SelectEncounter(GameState state, IReadOnlyList<EncounterId> encounterPool)

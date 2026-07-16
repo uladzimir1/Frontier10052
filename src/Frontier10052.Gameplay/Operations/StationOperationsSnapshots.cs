@@ -35,7 +35,11 @@ public sealed record StationOperationsSnapshot(
     string ImportantConsequences = "No persistent consequences recorded yet.",
     string CurrentCheckpoint = "Docked",
     int SiriusCompactStanding = 0,
-    int SiriusLaborStanding = 0);
+    int SiriusLaborStanding = 0,
+    string SiriusAftermathPhase = "Unavailable",
+    int SiriusConflictPressure = 0,
+    int SiriusActuatorUnits = 0,
+    string SiriusOutboundLeads = "No leads revealed");
 
 public sealed record FactionPresentation(string Id, string Name, int Standing);
 

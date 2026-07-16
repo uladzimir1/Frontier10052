@@ -8,6 +8,26 @@
 - New abstractions require at least two real callers or a clear boundary need.
 - Keep the first playable loop operable after every merged increment.
 
+## Completed density extensions
+
+### VS-085 First interstellar crossing — complete
+
+The completed second-contract branches converge on one Ceres/Pluto-to-Sirius intelligence voyage with pinch reserve, ordered route checkpoints, information provenance and disposition, customs, settlement claims, capitalized shortfalls, and persistent Sirius standings.
+
+### VS-086 Sirius Meridian actuator aftermath — complete
+
+**Outcome:** The delivered industrial forecast becomes a bounded station crisis without opening a fourth voyage.
+
+**Acceptance criteria**
+
+- Schema 5 migrates schemas 1–4 without changing authoritative money, time, command sequence, location, cargo, ship condition, contract, crew memory, lien, faction, manifest, or journey history fields.
+- Sirius settlement automatically freezes 12 actuator units against 36 units of demand at the deterministic stock-pressure price.
+- Noor–Tomas conflict pressure derives from loyalty difference and forecast disposition, with four typed responses and exact blockers.
+- Corporate, labor, and audited allocations consume all 12 units and atomically update time, money, drive wear, repair provenance, crew memories, standings, trust, market stock, and lead visibility.
+- The Procyon corporate courier and Meridian labor salvage leads are visible but cannot be accepted in this slice.
+- Operations and launcher presentation remain reload-safe, keyboard accessible, responsive at 390 pixels, and reduced-motion compliant.
+- Unit, integration, browser, Release, Podman, and Docker verification complete with no unresolved P0–P2 findings.
+
 ## Epic 0 — Repository foundation
 
 ### VS-001 Create solution projects

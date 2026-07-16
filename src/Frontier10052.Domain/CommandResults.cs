@@ -74,4 +74,10 @@ public static class CommandErrorCodes
     public const string CustomsAlreadyCleared = "sirius.customs-already-cleared";
     public const string SettlementUnavailable = "sirius.settlement-unavailable";
     public const string SettlementAlreadyComplete = "sirius.settlement-already-complete";
+    public const string AftermathUnavailable = "sirius.aftermath-unavailable";
+    public const string AftermathWrongPhase = "sirius.aftermath-wrong-phase";
+    public const string CrewConflictResponseUnavailable = "sirius.crew-conflict-response-unavailable";
+    public const string ActuatorAllocationUnavailable = "sirius.actuator-allocation-unavailable";
+    public const string AftermathAlreadyResolved = "sirius.aftermath-already-resolved";
+    public const string AftermathInsufficientCredits = "sirius.aftermath-insufficient-credits";
 }

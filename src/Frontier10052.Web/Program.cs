@@ -1,3 +1,4 @@
+using Frontier10052.Gameplay.Aftermath;
 using Frontier10052.Gameplay.Journey;
 using Frontier10052.Gameplay.Launcher;
 using Frontier10052.Gameplay.Operations;
@@ -24,6 +25,7 @@ builder.Services.AddSingleton<GameSessionCoordinator>();
 builder.Services.AddSingleton<IStationOperationsService, StationOperationsService>();
 builder.Services.AddSingleton<IJourneyService, JourneyService>();
 builder.Services.AddSingleton<ITurnaroundService, TurnaroundService>();
+builder.Services.AddSingleton<ISiriusAftermathService, SiriusAftermathService>();
 builder.Services.AddSingleton<ILauncherSnapshotQuery, StationLauncherSnapshotQuery>();
 
 var app = builder.Build();

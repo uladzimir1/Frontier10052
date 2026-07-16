@@ -28,8 +28,11 @@ public enum JourneyPhase
 
 public enum EncounterStatus { Pending, Resolved }
 public enum LienDisposition { Serviced, Deferred }
-public enum RepairService { Certified, IlyaFieldService, Deferred }
+public enum RepairService { Certified, IlyaFieldService, Deferred, CompactAllocationRefit, LaborMutualAidRefit, AuditedAllocationRefit }
 public enum CrewRestService { FullLayover, TurnaroundWatches }
+public enum SiriusAftermathPhase { CrewConflict, ActuatorAllocation, Resolved }
+public enum CrewConflictResponse { SupportNoor, SupportTomas, JointAudit, CaptainsOrder }
+public enum ActuatorAllocationResponse { CorporatePriority, LaborSafety, AuditedSplit }
 
 public enum EncounterResponse
 {
@@ -280,6 +283,34 @@ public sealed record InformationSettlementState(
     Credits CapitalizedClaim,
     string Outcome);
 
+public sealed record CrewConflictState(
+    int Pressure,
+    CrewConflictResponse? Response,
+    GameTime? ResolvedAt,
+    string Outcome);
+
+public sealed record OutboundLeadState(
+    ContractLeadId Id,
+    bool Available,
+    string LockedReason);
+
+public sealed record SiriusAftermathState(
+    StationEventId Id,
+    SiriusAftermathPhase Phase,
+    GameTime OpenedAt,
+    InformationDisposition ForecastDisposition,
+    int ActuatorUnits,
+    Credits FrozenUnitPrice,
+    CrewConflictState CrewConflict,
+    ActuatorAllocationResponse? Allocation,
+    GameTime? ResolvedAt,
+    int CorporateUnits,
+    int LaborUnits,
+    int WayfarerUnits,
+    Credits FinalUnitPrice,
+    IReadOnlyList<OutboundLeadState> Leads,
+    string Outcome);
+
 public sealed record JourneyState(
     JourneyPhase Phase,
     StationId? DockedStationId,
@@ -329,9 +360,10 @@ public sealed record GameState(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ContractTransformationState>? ContractTransformations = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<DebtLedgerEntryState>? DebtLedger = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SiriusCustomsState? SiriusCustoms = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InformationSettlementState? InformationSettlement = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InformationSettlementState? InformationSettlement = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SiriusAftermathState? SiriusAftermath = null)
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
     public Tonnes CargoLoaded => new(Cargo.Sum(item => item.Quantity.Value));
     public Tonnes CargoAvailable => Ship.CargoCapacity - CargoLoaded;
 

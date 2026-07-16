@@ -7,13 +7,13 @@ namespace Frontier10052.IntegrationTests;
 public sealed class ContentValidationTests
 {
     [TestMethod]
-    public void VerticalSliceV3IsCompleteAndValid()
+    public void VerticalSliceV4IsCompleteAndValid()
     {
         VerticalSliceContentPack pack = VerticalSliceContentPack.Create();
         ContentValidationResult result = ContentPackValidator.Validate(pack);
 
         Assert.IsTrue(result.IsValid, string.Join(Environment.NewLine, result.Errors.Select(error => error.Message)));
-        Assert.AreEqual("vertical-slice-v3", pack.Version);
+        Assert.AreEqual("vertical-slice-v4", pack.Version);
         Assert.HasCount(5, pack.Stations);
         Assert.HasCount(4, pack.Crew);
         Assert.HasCount(7, pack.Commodities);
@@ -32,6 +32,8 @@ public sealed class ContentValidationTests
         Assert.HasCount(5, pack.MarsPrices);
         Assert.HasCount(1, pack.Information);
         Assert.HasCount(3, pack.StationServices);
+        Assert.HasCount(1, pack.StationEvents);
+        Assert.HasCount(2, pack.OutboundLeads);
         Assert.IsTrue(pack.Routes.Where(route => route.DestinationStationId.Value == "sirius-meridian-exchange")
             .All(route => route.Checkpoints?.Count == 5 && route.EncounterPool.Count == 0));
     }
@@ -108,5 +110,39 @@ public sealed class ContentValidationTests
         CollectionAssert.Contains(codes, "route.checkpoint-bounds");
         CollectionAssert.Contains(codes, "route.checkpoint-pinch");
         CollectionAssert.Contains(codes, "route.deadline");
+    }
+
+    [TestMethod]
+    public void ValidatorRejectsAftermathTotalsCoverageReferencesAndMissingLeadText()
+    {
+        VerticalSliceContentPack valid = VerticalSliceContentPack.Create();
+        StationEventDefinition stationEvent = valid.StationEvents.Single();
+        Dictionary<string, string> text = new(valid.Localization, StringComparer.Ordinal);
+        text.Remove("lead.procyon.title");
+        VerticalSliceContentPack invalid = valid with
+        {
+            StationEvents =
+            [
+                stationEvent with
+                {
+                    CommodityId = new CommodityId("missing-actuators"),
+                    AvailableUnits = 11,
+                    CrewResponses = ["CaptainsOrder"],
+                    AllocationResponses = ["AuditedSplit"],
+                },
+            ],
+            OutboundLeads = [valid.OutboundLeads[0] with { EventId = new StationEventId("missing-event"), UnlocksFor = "MissingAllocation" }],
+            Localization = text,
+        };
+
+        string[] codes = ContentPackValidator.Validate(invalid).Errors.Select(item => item.Code).ToArray();
+        CollectionAssert.Contains(codes, "reference.station-event-commodity");
+        CollectionAssert.Contains(codes, "station-event.actuator-total");
+        CollectionAssert.Contains(codes, "station-event.crew-responses");
+        CollectionAssert.Contains(codes, "station-event.allocation-responses");
+        CollectionAssert.Contains(codes, "reference.outbound-lead-event");
+        CollectionAssert.Contains(codes, "outbound-lead.unlock");
+        CollectionAssert.Contains(codes, "outbound-lead.count");
+        CollectionAssert.Contains(codes, "localization.missing");
     }
 }

@@ -169,6 +169,98 @@ public sealed class SiriusCommandTests
         StringAssert.Contains(wear.Error!.Message, "adds 3 drive wear; only 2 points of margin remain");
     }
 
+    [TestMethod]
+    [DataRow(nameof(InformationDisposition.Sealed), 10, 35)]
+    [DataRow(nameof(InformationDisposition.Corroborated), 0, 25)]
+    [DataRow(nameof(InformationDisposition.Disclosed), 15, 40)]
+    public void AftermathCreationFreezesActuatorMarketAndComputesDispositionPressure(string dispositionName, int modifier, int expectedPressure)
+    {
+        InformationDisposition disposition = Enum.Parse<InformationDisposition>(dispositionName);
+        GameState before = CreateSettledSiriusState(disposition);
+
+        GameState state = OpenAftermath(before);
+
+        Assert.AreEqual(before.Time, state.Time);
+        Assert.AreEqual(before.CommandSequence, state.CommandSequence);
+        Assert.AreEqual(expectedPressure, state.SiriusAftermath!.CrewConflict.Pressure);
+        Assert.AreEqual(25 + Math.Abs(60 - 60) + modifier, state.SiriusAftermath.CrewConflict.Pressure);
+        Assert.AreEqual(12, state.SiriusAftermath.ActuatorUnits);
+        Assert.AreEqual(1_579, state.SiriusAftermath.FrozenUnitPrice.Value);
+        Assert.AreEqual(12, state.Market.Listings.Single().Stock.Value);
+        Assert.IsFalse(state.Market.Listings.Single().Purchasable);
+        Assert.HasCount(2, state.SiriusAftermath.Leads);
+    }
+
+    [TestMethod]
+    [DataRow(nameof(CrewConflictResponse.SupportNoor), 2, 15, 3, -2, 0, 0)]
+    [DataRow(nameof(CrewConflictResponse.SupportTomas), 2, 15, -2, 3, 0, 0)]
+    [DataRow(nameof(CrewConflictResponse.JointAudit), 4, -20, 1, 1, 4, 1)]
+    [DataRow(nameof(CrewConflictResponse.CaptainsOrder), 1, 25, -2, -2, 0, 0)]
+    public void CrewHearingAppliesExactTimePressureFatigueLoyaltyAndOneSequence(
+        string responseName, int hours, int pressureDelta, int noorLoyalty, int tomasLoyalty, int ilyaFatigue, int ilyaLoyalty)
+    {
+        CrewConflictResponse response = Enum.Parse<CrewConflictResponse>(responseName);
+        GameState state = OpenAftermath(CreateSettledSiriusState(InformationDisposition.Corroborated));
+        state = state with
+        {
+            Crew = state.Crew.Select(item => item.Id.Value == "tomas-vale" ? item with { Loyalty = 65 } : item).ToArray(),
+        };
+        int beforePressure = state.SiriusAftermath!.CrewConflict.Pressure;
+
+        CommandResult<GameState> result = SiriusAftermathCommands.ResolveCrewConflict(state, response);
+
+        Assert.IsTrue(result.IsSuccess, result.Error?.Message);
+        GameState actual = result.Value!;
+        Assert.AreEqual(state.Time.AddHours(hours), actual.Time);
+        Assert.AreEqual(state.CommandSequence + 1, actual.CommandSequence);
+        Assert.AreEqual(Math.Clamp(beforePressure + pressureDelta, 0, 100), actual.SiriusAftermath!.CrewConflict.Pressure);
+        Assert.AreEqual(Crew(state, "noor-okafor").Loyalty + noorLoyalty, Crew(actual, "noor-okafor").Loyalty);
+        Assert.AreEqual(Crew(state, "tomas-vale").Loyalty + tomasLoyalty, Crew(actual, "tomas-vale").Loyalty);
+        Assert.AreEqual(Crew(state, "ilya-sato").Fatigue + ilyaFatigue, Crew(actual, "ilya-sato").Fatigue);
+        Assert.AreEqual(Crew(state, "ilya-sato").Loyalty + ilyaLoyalty, Crew(actual, "ilya-sato").Loyalty);
+        Assert.AreEqual(SiriusAftermathPhase.ActuatorAllocation, actual.SiriusAftermath.Phase);
+    }
+
+    [TestMethod]
+    public void AllocationChoicesApplyExactEconomyRepairStandingsAndLeadVisibility()
+    {
+        GameState corporate = ResolveHearing(OpenAftermath(CreateSettledSiriusState(InformationDisposition.Sealed)), CrewConflictResponse.SupportNoor);
+        GameState labor = ResolveHearing(OpenAftermath(CreateSettledSiriusState(InformationDisposition.Corroborated)), CrewConflictResponse.CaptainsOrder) with
+        {
+            FactionStandings = AdjustStanding(ResolveHearing(OpenAftermath(CreateSettledSiriusState(InformationDisposition.Corroborated)), CrewConflictResponse.CaptainsOrder).AllFactionStandings, FactionIds.SiriusLabor, 4),
+        };
+        GameState audited = ResolveHearing(OpenAftermath(CreateSettledSiriusState(InformationDisposition.Corroborated)), CrewConflictResponse.JointAudit);
+
+        GameState corporateResult = SiriusAftermathCommands.ResolveActuatorAllocation(corporate, ActuatorAllocationResponse.CorporatePriority).Value!;
+        GameState laborResult = SiriusAftermathCommands.ResolveActuatorAllocation(labor, ActuatorAllocationResponse.LaborSafety).Value!;
+        GameState auditResult = SiriusAftermathCommands.ResolveActuatorAllocation(audited, ActuatorAllocationResponse.AuditedSplit).Value!;
+
+        AssertAllocation(corporate, corporateResult, 2, 10, 0, 6, 4_000, 4, -4, 2, true, false);
+        AssertAllocation(labor, laborResult, 4, 0, 10, 3, 2_000, -4, 5, 0, false, true);
+        AssertAllocation(audited, auditResult, 4, 5, 5, 5, -1_500, 2, 3, 1, true, true);
+    }
+
+    [TestMethod]
+    public void RefusalsUseStableErrorsAndLeaveCanonicalStateUntouched()
+    {
+        GameState hearing = OpenAftermath(CreateSettledSiriusState(InformationDisposition.Sealed));
+        hearing = hearing with { Crew = hearing.Crew.Select(item => item.Id.Value == "tomas-vale" ? item with { Loyalty = 64 } : item).ToArray() };
+        string beforeHearing = GameStateCanonicalizer.Serialize(hearing);
+        CommandResult<GameState> refusedTomas = SiriusAftermathCommands.ResolveCrewConflict(hearing, CrewConflictResponse.SupportTomas);
+        Assert.AreEqual(CommandErrorCodes.CrewConflictResponseUnavailable, refusedTomas.Error?.Code);
+        Assert.AreEqual(beforeHearing, GameStateCanonicalizer.Serialize(hearing));
+
+        GameState allocation = ResolveHearing(hearing, CrewConflictResponse.CaptainsOrder) with { Money = new Credits(1_499) };
+        string beforeAllocation = GameStateCanonicalizer.Serialize(allocation);
+        CommandResult<GameState> insufficient = SiriusAftermathCommands.ResolveActuatorAllocation(allocation, ActuatorAllocationResponse.AuditedSplit);
+        Assert.AreEqual(CommandErrorCodes.AftermathInsufficientCredits, insufficient.Error?.Code);
+        Assert.AreEqual(beforeAllocation, GameStateCanonicalizer.Serialize(allocation));
+
+        GameState resolved = SiriusAftermathCommands.ResolveActuatorAllocation(allocation with { Money = new Credits(3_000) }, ActuatorAllocationResponse.AuditedSplit).Value!;
+        CommandResult<GameState> repeated = SiriusAftermathCommands.ResolveActuatorAllocation(resolved, ActuatorAllocationResponse.AuditedSplit);
+        Assert.AreEqual(CommandErrorCodes.AftermathAlreadyResolved, repeated.Error?.Code);
+    }
+
     private static GameState CreateAtLattice()
     {
         GameState state = TurnaroundCommands.AuthorizeDeparture(CreateSiriusTurnaroundState(), CreateRoute()).Value!;
@@ -176,6 +268,53 @@ public sealed class SiriusCommandTests
         state = JourneyCommands.ResolveNextCheckpoint(state, null).Value!;
         return JourneyCommands.ResolveNextCheckpoint(state, CheckpointResponse.PreserveSeal).Value!;
     }
+
+    private static GameState CreateSettledSiriusState(InformationDisposition disposition)
+    {
+        GameState state = CreateSiriusTurnaroundState();
+        StationId sirius = new("sirius-meridian-exchange");
+        InformationSettlementState settlement = new(state.Contract.Id, new InformationId("scc-sirius-industrial-forecast"), disposition, true, state.Time, new Credits(0), new Credits(0), new Credits(0), "Settled");
+        return state with
+        {
+            Ship = state.Ship with { StationId = sirius, DriveWearPercent = 20 },
+            Market = new StationMarketState(sirius, []),
+            StationMarkets = [.. state.AllStationMarkets.Where(item => item.StationId != sirius), new StationMarketState(sirius, [])],
+            InformationSettlement = settlement,
+            Turnaround = null,
+            Journey = state.Journey! with { Phase = JourneyPhase.Delivered, DockedStationId = sirius, VoyageNumber = 3 },
+        };
+    }
+
+    private static GameState OpenAftermath(GameState state) => SiriusAftermathCommands.CreateAftermath(
+        state,
+        new StationEventId("sirius-meridian-actuator-lockout"),
+        new CommodityId("actuator-assemblies"),
+        [new ContractLeadId("scc-procyon-allocation-courier"), new ContractLeadId("meridian-outer-yard-salvage")]);
+
+    private static GameState ResolveHearing(GameState state, CrewConflictResponse response) => SiriusAftermathCommands.ResolveCrewConflict(state, response).Value!;
+
+    private static IReadOnlyList<FactionStandingState> AdjustStanding(IReadOnlyList<FactionStandingState> standings, string id, int delta) => standings.Select(item => item.FactionId == id ? item with { Standing = item.Standing + delta } : item).ToArray();
+
+    private static void AssertAllocation(GameState before, GameState actual, int hours, int corporate, int labor, int wearRemoved, long creditDelta, int compactDelta, int laborDelta, int trustDelta, bool corporateLead, bool laborLead)
+    {
+        Assert.AreEqual(before.Time.AddHours(hours), actual.Time);
+        Assert.AreEqual(before.CommandSequence + 1, actual.CommandSequence);
+        Assert.AreEqual(0, actual.SiriusAftermath!.ActuatorUnits);
+        Assert.AreEqual(corporate, actual.SiriusAftermath.CorporateUnits);
+        Assert.AreEqual(labor, actual.SiriusAftermath.LaborUnits);
+        Assert.AreEqual(2, actual.SiriusAftermath.WayfarerUnits);
+        Assert.AreEqual(before.Ship.DriveWearPercent - wearRemoved, actual.Ship.DriveWearPercent);
+        Assert.AreEqual(before.Money.Value + creditDelta, actual.Money.Value);
+        Assert.AreEqual(Standing(before, FactionIds.SiriusCorporateCompact) + compactDelta, Standing(actual, FactionIds.SiriusCorporateCompact));
+        Assert.AreEqual(Standing(before, FactionIds.SiriusLabor) + laborDelta, Standing(actual, FactionIds.SiriusLabor));
+        Assert.AreEqual(before.CommercialTrust + trustDelta, actual.CommercialTrust);
+        Assert.AreEqual(1_728, actual.SiriusAftermath.FinalUnitPrice.Value);
+        Assert.AreEqual(0, actual.Market.Listings.Single().Stock.Value);
+        Assert.AreEqual(corporateLead, actual.SiriusAftermath.Leads.Single(item => item.Id.Value == "scc-procyon-allocation-courier").Available);
+        Assert.AreEqual(laborLead, actual.SiriusAftermath.Leads.Single(item => item.Id.Value == "meridian-outer-yard-salvage").Available);
+    }
+
+    private static int Standing(GameState state, string id) => state.AllFactionStandings.Single(item => item.FactionId == id).Standing;
 
     private static GameState CreateSiriusTurnaroundState()
     {

@@ -86,18 +86,21 @@ public sealed class GameSessionCoordinator
         bool schema1 = envelope.StateSchemaVersion == 1 && envelope.ContentPackVersion == VerticalSliceContentPack.LegacyPackVersion;
         bool schema2 = envelope.StateSchemaVersion == 2 && envelope.ContentPackVersion == VerticalSliceContentPack.Schema2PackVersion;
         bool schema3 = envelope.StateSchemaVersion == 3 && envelope.ContentPackVersion == VerticalSliceContentPack.Schema3PackVersion;
+        bool schema4 = envelope.StateSchemaVersion == 4 && envelope.ContentPackVersion == VerticalSliceContentPack.Schema4PackVersion;
         bool current = envelope.StateSchemaVersion == GameState.CurrentSchemaVersion && envelope.ContentPackVersion == Content.Version;
-        if (!schema1 && !schema2 && !schema3 && !current) return CommandResult<GameState>.Failure(CommandErrorCodes.SaveIncompatible, "The local journey uses an incompatible content or save schema version. Start a new commander to recover.");
+        if (!schema1 && !schema2 && !schema3 && !schema4 && !current) return CommandResult<GameState>.Failure(CommandErrorCodes.SaveIncompatible, "The local journey uses an incompatible content or save schema version. Start a new commander to recover.");
 
         GameState state = schema1
-            ? MigrateSchema3To4(MigrateSchema2To3(MigrateSchema1To2(envelope.State)))
+            ? MigrateSchema4To5(MigrateSchema3To4(MigrateSchema2To3(MigrateSchema1To2(envelope.State))))
             : schema2
-                ? MigrateSchema3To4(MigrateSchema2To3(envelope.State))
+                ? MigrateSchema4To5(MigrateSchema3To4(MigrateSchema2To3(envelope.State)))
                 : schema3
-                    ? MigrateSchema3To4(envelope.State)
-                    : envelope.State;
+                    ? MigrateSchema4To5(MigrateSchema3To4(envelope.State))
+                    : schema4
+                        ? MigrateSchema4To5(envelope.State)
+                        : envelope.State;
         if (state.Journey is null) return CommandResult<GameState>.Failure(CommandErrorCodes.SaveIncompatible, "The journey phase is missing from the save.");
-        if ((schema1 || schema2 || schema3) && rewriteMigration)
+        if ((schema1 || schema2 || schema3 || schema4) && rewriteMigration)
         {
             CommandResult<GameSaveEnvelope> rewritten = await _saveStore.SaveAsync(key, CreateEnvelope(state), true, cancellationToken);
             if (!rewritten.IsSuccess) return Failure(rewritten.Error!);
@@ -253,7 +256,7 @@ public sealed class GameSessionCoordinator
 
         return state with
         {
-            SchemaVersion = GameState.CurrentSchemaVersion,
+            SchemaVersion = 4,
             Contract = active,
             Contracts = contracts,
             StationMarkets = markets,
@@ -265,6 +268,16 @@ public sealed class GameSessionCoordinator
             ContractTransformations = state.ContractTransformations ?? [],
             DebtLedger = state.DebtLedger ?? [],
         };
+    }
+
+    internal GameState MigrateSchema4To5(GameState state)
+    {
+        GameState migrated = state with { SchemaVersion = GameState.CurrentSchemaVersion };
+        if (migrated.InformationSettlement is null || migrated.Ship.StationId.Value != "sirius-meridian-exchange") return migrated;
+
+        StationEventDefinition stationEvent = Content.StationEvents.Single(item => item.Id.Value == "sirius-meridian-actuator-lockout");
+        IReadOnlyList<ContractLeadId> leadIds = Content.OutboundLeads.Where(item => item.EventId == stationEvent.Id).Select(item => item.Id).ToArray();
+        return SiriusAftermathCommands.CreateAftermath(migrated, stationEvent.Id, stationEvent.CommodityId, leadIds);
     }
 
     internal IReadOnlyList<ContractState> CreateTurnaroundOffers(GameTime offeredAt) => Content.Contracts

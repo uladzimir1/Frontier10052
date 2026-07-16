@@ -27,6 +27,8 @@ public static class ContentPackValidator
         AddDuplicates(pack.MarsPrices.Select(item => item.CommodityId.Value), "mars-price", errors);
         AddDuplicates(pack.StationMarkets.Select(item => item.StationId.Value), "station-market", errors);
         AddDuplicates(pack.StationServices.Select(item => item.StationId.Value), "station-service", errors);
+        AddDuplicates(pack.StationEvents.Select(item => item.Id.Value), "station-event", errors);
+        AddDuplicates(pack.OutboundLeads.Select(item => item.Id.Value), "outbound-lead", errors);
         AddDuplicates(pack.Routes.SelectMany(item => item.Checkpoints ?? []).Select(item => item.Id.Value), "route-checkpoint", errors);
 
         HashSet<StationId> stationIds = pack.Stations.Select(item => item.Id).ToHashSet();
@@ -34,6 +36,7 @@ public static class ContentPackValidator
         HashSet<InformationId> informationIds = pack.Information.Select(item => item.Id).ToHashSet();
         HashSet<CrewId> crewIds = pack.Crew.Select(item => item.Id).ToHashSet();
         HashSet<EncounterId> encounterIds = pack.Encounters.Select(item => item.Id).ToHashSet();
+        HashSet<StationEventId> eventIds = pack.StationEvents.Select(item => item.Id).ToHashSet();
 
         Require(stationIds.Contains(pack.Ship.StationId), "reference.ship-station", "The ship references a station that is not in the pack.", errors);
         Require(pack.Crew.All(item => item.ShipId == pack.Ship.Id), "reference.crew-ship", "A crew member references a different or missing ship.", errors);
@@ -124,6 +127,21 @@ public static class ContentPackValidator
         {
             Require(service.FuelUnitCost > 0 && service.PinchUnitCost >= 0 && service.CertifiedRepairCost > 0 && service.FieldRepairCost > 0, "station-service.values", $"Station services for {service.StationId} contain invalid prices.", errors);
         }
+
+        foreach (StationEventDefinition stationEvent in pack.StationEvents)
+        {
+            Require(stationIds.Contains(stationEvent.StationId), "reference.station-event-station", $"Station event {stationEvent.Id} references a missing station.", errors);
+            Require(commodityIds.Contains(stationEvent.CommodityId), "reference.station-event-commodity", $"Station event {stationEvent.Id} references a missing commodity.", errors);
+            Require(stationEvent.AvailableUnits == 12 && stationEvent.TargetUnits == 36, "station-event.actuator-total", $"Station event {stationEvent.Id} must author the 12-of-36 actuator shortage.", errors);
+            Require(stationEvent.CrewResponses.Order().SequenceEqual(new[] { "CaptainsOrder", "JointAudit", "SupportNoor", "SupportTomas" }), "station-event.crew-responses", $"Station event {stationEvent.Id} does not cover every crew-conflict response.", errors);
+            Require(stationEvent.AllocationResponses.Order().SequenceEqual(new[] { "AuditedSplit", "CorporatePriority", "LaborSafety" }), "station-event.allocation-responses", $"Station event {stationEvent.Id} does not cover every actuator allocation.", errors);
+        }
+        foreach (OutboundLeadDefinition lead in pack.OutboundLeads)
+        {
+            Require(eventIds.Contains(lead.EventId), "reference.outbound-lead-event", $"Outbound lead {lead.Id} references a missing station event.", errors);
+            Require(lead.UnlocksFor is "CorporatePriority" or "LaborSafety", "outbound-lead.unlock", $"Outbound lead {lead.Id} has an unreachable allocation unlock.", errors);
+        }
+        Require(pack.OutboundLeads.Count(item => item.EventId.Value == "sirius-meridian-actuator-lockout") == 2, "outbound-lead.count", "The Sirius aftermath must reveal exactly two outbound leads.", errors);
         Require(pack.MarsPrices.All(item => commodityIds.Contains(item.CommodityId)), "reference.mars-price", "A Mars price references a missing commodity.", errors);
         Require(pack.Commodities.Where(item => item.Purchasable).All(item => pack.MarsPrices.Any(price => price.CommodityId == item.Id)), "mars-price.missing", "Every Earth-purchasable commodity needs a Mars bid.", errors);
 
@@ -164,6 +182,10 @@ public static class ContentPackValidator
                 .Concat(pack.Routes.SelectMany(item => new[] { item.NameKey, item.ProfileKey }))
                 .Concat(pack.Routes.SelectMany(item => item.Checkpoints ?? []).SelectMany(item => new[] { item.TitleKey, item.DetailKey }))
                 .Concat(pack.Encounters.SelectMany(item => new[] { item.TitleKey, item.DetailKey, item.SourceKey }));
+
+        localizationKeys = localizationKeys
+            .Concat(pack.StationEvents.SelectMany(item => new[] { item.TitleKey, item.DetailKey }))
+            .Concat(pack.OutboundLeads.SelectMany(item => new[] { item.TitleKey, item.DetailKey }));
 
         foreach (string key in localizationKeys.Distinct(StringComparer.Ordinal))
         {

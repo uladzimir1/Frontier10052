@@ -42,7 +42,12 @@ public sealed class JourneyService(GameSessionCoordinator sessions) : IJourneySe
             _ => null,
         }), cancellationToken);
     public ValueTask<CommandResult<JourneySnapshot>> ClearSiriusCustomsAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, JourneyCommands.ClearSiriusCustoms, cancellationToken);
-    public ValueTask<CommandResult<JourneySnapshot>> SettleInformationContractAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, JourneyCommands.SettleInformationContract, cancellationToken);
+    public ValueTask<CommandResult<JourneySnapshot>> SettleInformationContractAsync(string playerKey, CancellationToken cancellationToken = default) => Mutate(playerKey, state =>
+    {
+        StationEventDefinition stationEvent = sessions.Content.StationEvents.Single(item => item.Id.Value == "sirius-meridian-actuator-lockout");
+        IReadOnlyList<ContractLeadId> leads = sessions.Content.OutboundLeads.Where(item => item.EventId == stationEvent.Id).Select(item => item.Id).ToArray();
+        return JourneyCommands.SettleInformationContract(state, stationEvent.Id, stationEvent.CommodityId, leads);
+    }, cancellationToken);
 
     private static RouteTravelState CreateRoute(RouteDefinition route, GameTime time) => new(
         route.Id, route.OriginStationId, route.DestinationStationId, route.DurationHours, route.FuelCostPercent, route.DriveWearPercent,

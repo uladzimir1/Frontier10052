@@ -117,6 +117,24 @@ public sealed record StationServiceDefinition(
     int CertifiedRepairCost,
     int FieldRepairCost);
 
+public sealed record StationEventDefinition(
+    StationEventId Id,
+    StationId StationId,
+    CommodityId CommodityId,
+    int AvailableUnits,
+    int TargetUnits,
+    string TitleKey,
+    string DetailKey,
+    IReadOnlyList<string> CrewResponses,
+    IReadOnlyList<string> AllocationResponses);
+
+public sealed record OutboundLeadDefinition(
+    ContractLeadId Id,
+    StationEventId EventId,
+    string TitleKey,
+    string DetailKey,
+    string UnlocksFor);
+
 public sealed record VerticalSliceContentPack(
     string Version,
     IReadOnlyList<StationDefinition> Stations,
@@ -131,9 +149,12 @@ public sealed record VerticalSliceContentPack(
     IReadOnlyList<MarsPriceDefinition> MarsPrices,
     IReadOnlyList<StationMarketDefinition> StationMarkets,
     IReadOnlyList<StationServiceDefinition> StationServices,
+    IReadOnlyList<StationEventDefinition> StationEvents,
+    IReadOnlyList<OutboundLeadDefinition> OutboundLeads,
     IReadOnlyDictionary<string, string> Localization)
 {
-    public const string PackVersion = "vertical-slice-v3";
+    public const string PackVersion = "vertical-slice-v4";
+    public const string Schema4PackVersion = "vertical-slice-v3";
     public const string Schema3PackVersion = "vertical-slice-v2";
     public const string Schema2PackVersion = "vertical-slice-v1";
     public const string LegacyPackVersion = "vertical-slice-v0";
@@ -342,6 +363,12 @@ public sealed record VerticalSliceContentPack(
             ["encounter.ceres-debris.title"] = "Debris strike and coolant breach",
             ["encounter.ceres-debris.detail"] = "A debris fan ruptures an auxiliary coolant run; Ilya can repair it or Mara can evade the densest field.",
             ["encounter.ceres-debris.source"] = "Wayfarer collision and coolant telemetry",
+            ["event.sirius-lockout.title"] = "Meridian actuator allocation lockout",
+            ["event.sirius-lockout.detail"] = "The delivered industrial forecast became a twelve-unit actuator shortage against thirty-six units of documented demand.",
+            ["lead.procyon.title"] = "Procyon allocation courier",
+            ["lead.procyon.detail"] = "Carry a certified corporate allocation record toward Procyon when outbound contracts reopen.",
+            ["lead.salvage.title"] = "Meridian outer-yard salvage",
+            ["lead.salvage.detail"] = "Join the labor yards' recovery survey when outbound contracts reopen.",
         };
 
         return new VerticalSliceContentPack(
@@ -387,6 +414,17 @@ public sealed record VerticalSliceContentPack(
                 new StationServiceDefinition(mars, 85, 0, 5_400, 1_800),
                 new StationServiceDefinition(ceres, 95, 140, 6_200, 2_100),
                 new StationServiceDefinition(pluto, 110, 120, 6_200, 2_100),
+            ],
+            [
+                new StationEventDefinition(
+                    new StationEventId("sirius-meridian-actuator-lockout"), sirius, new CommodityId("actuator-assemblies"), 12, 36,
+                    "event.sirius-lockout.title", "event.sirius-lockout.detail",
+                    ["SupportNoor", "SupportTomas", "JointAudit", "CaptainsOrder"],
+                    ["CorporatePriority", "LaborSafety", "AuditedSplit"]),
+            ],
+            [
+                new OutboundLeadDefinition(new ContractLeadId("scc-procyon-allocation-courier"), new StationEventId("sirius-meridian-actuator-lockout"), "lead.procyon.title", "lead.procyon.detail", "CorporatePriority"),
+                new OutboundLeadDefinition(new ContractLeadId("meridian-outer-yard-salvage"), new StationEventId("sirius-meridian-actuator-lockout"), "lead.salvage.title", "lead.salvage.detail", "LaborSafety"),
             ],
             text);
     }

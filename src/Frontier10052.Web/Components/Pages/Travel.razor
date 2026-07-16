@@ -67,7 +67,7 @@
                     <div class="encounter-responses">
                         @foreach (JourneyAction action in _snapshot.Encounter.Responses)
                         {
-                            <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button disabled="@(!action.IsAvailable || _busy)" @onclick="() => Resolve(action.Response!.Value)">Choose response</button></article>
+                            <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button aria-label="Choose @action.Label" disabled="@(!action.IsAvailable || _busy)" @onclick="() => Resolve(action.Response!.Value)">Choose response</button></article>
                         }
                     </div>
                 </section>
@@ -83,7 +83,7 @@
                         <div class="encounter-responses">
                             @foreach (JourneyAction action in checkpoint.Responses)
                             {
-                                <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button disabled="@(!action.IsAvailable || _busy)" @onclick="() => ResolveCheckpoint(action.CheckpointResponse)">Choose response</button></article>
+                                <article class="@(!action.IsAvailable ? "unavailable" : null)"><small>@action.Consequence</small><h3>@action.Label</h3><p>@action.Explanation</p><button aria-label="Choose @action.Label" disabled="@(!action.IsAvailable || _busy)" @onclick="() => ResolveCheckpoint(action.CheckpointResponse)">Choose response</button></article>
                             }
                         </div>
                     }

@@ -57,6 +57,7 @@
 @code {
     [Parameter, EditorRequired] public JourneySnapshot InitialSnapshot { get; set; } = null!;
     [Parameter, EditorRequired] public string PlayerKey { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnInformationSettled { get; set; }
     private JourneySnapshot? _snapshot;
     private int _active = 1;
     private bool _busy;
@@ -65,7 +66,7 @@
     private ElementReference _settlementHeading;
     protected override void OnInitialized() { _snapshot = InitialSnapshot; _active = _snapshot.InformationSettlement is not null ? 3 : _snapshot.SiriusCustoms?.Cleared == true ? 2 : 1; }
     private async Task ClearCustoms() { await Run(() => Journey.ClearSiriusCustomsAsync(PlayerKey)); if (_snapshot?.SiriusCustoms?.Cleared == true) _active = 2; }
-    private async Task Settle() { await Run(() => Journey.SettleInformationContractAsync(PlayerKey)); if (_snapshot?.InformationSettlement is not null) { _focusSettlement = true; _active = 3; } }
+    private async Task Settle() { await Run(() => Journey.SettleInformationContractAsync(PlayerKey)); if (_snapshot?.InformationSettlement is not null) { _focusSettlement = true; _active = 3; if (OnInformationSettled.HasDelegate) await OnInformationSettled.InvokeAsync(); } }
     protected override async Task OnAfterRenderAsync(bool firstRender) { if (!_focusSettlement) return; _focusSettlement = false; await _settlementHeading.FocusAsync(preventScroll: true); }
     private async Task Run(Func<ValueTask<CommandResult<JourneySnapshot>>> command) { if (_busy) return; _busy = true; _error = null; CommandResult<JourneySnapshot> result = await command(); _busy = false; if (result.IsSuccess) _snapshot = result.Value; else _error = result.Error?.Message; }
     private static string Credits(long value) => $"{value:N0} cr";
